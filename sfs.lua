@@ -324,14 +324,14 @@ do
             write(buf, char(floor(n / 256) % 256))
             write(buf, char(n % 256))
         elseif n <= 0xFFFFFFFFFFFFF then -- uint52
-        	write(buf, char(tag + 0x3))
-        	write(buf, char(n % 256))
-        	write(buf, char(floor(n / 256) % 256))
-        	write(buf, char(floor(n / 0x10000) % 256))
-        	write(buf, char(floor(n / 0x1000000) % 256))
-        	write(buf, char(floor(n / 0x100000000) % 256))
-        	write(buf, char(floor(n / 0x10000000000) % 256))
-        	write(buf, char(floor(n / 0x1000000000000) % 256))
+            write(buf, char(tag + 0x3))
+            write(buf, char(n % 256))
+            write(buf, char(floor(n / 256) % 256))
+            write(buf, char(floor(n / 0x10000) % 256))
+            write(buf, char(floor(n / 0x1000000) % 256))
+            write(buf, char(floor(n / 0x100000000) % 256))
+            write(buf, char(floor(n / 0x10000000000) % 256))
+            write(buf, char(floor(n / 0x1000000000000) % 256))
         end
     end
 
