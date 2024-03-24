@@ -1,4 +1,8 @@
-# SFS (Srlion's Fast Serializer)
+# SFS
+
+sfs (Srlion's Fast Serializer) - Blazing fast binary serializer for Garry's Mod
+
+## Introduction
 
 This is a blazing fast binary serializer. It is designed to be efficient and avoid operations not yet implemented in LuaJIT 2.0.5. It is particularly useful for encoding and decoding network messages. With LuaJIT 2.1 it's even way faster.
 
