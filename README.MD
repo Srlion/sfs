@@ -57,6 +57,15 @@ local value_to_encode = {nil, false, true, "xd lol hehe", 1, 0xFF, 0xFFFF, 0xFFF
 Running it 100,000 times:
 | Library | Encode + Decode |
 | ------- | --------------- |
-| sfs | 0.117323 |
-| cbor | 0.228032 |
-| pon | 0.386521 |
+| sfs | 1.233872852 |
+| cbor | 1.7398643 |
+| pon | 2.392090866 |
+
+Around 40% faster than cbor and 94% faster than pon. Encode output will be almost the same size as cbor but way smaller than pon.
+
+## Tested On [Physgun](https://billing.physgun.com/aff.php?aff=131) Dev Server
+
+**Gamemode:** Sandbox
+
+- Lua Refresh -> **OFF**
+- Physgun Utils -> **OFF**
