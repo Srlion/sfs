@@ -1,6 +1,6 @@
 # SFS
 
-sfs (Srlion's Fast Serializer) - Blazing fast binary serializer for Garry's Mod
+SFS - Srlion's Fast Binary Serializer for Garry's Mod
 
 ## Introduction
 
