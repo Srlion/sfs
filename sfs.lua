@@ -717,7 +717,7 @@ do
         if b == nil then
             return nil, err
         end
-        return b - NEGATIVE_INT
+        return NEGATIVE_INT - b
     end
 
     for i = NEGATIVE_INT + 1, NEGATIVE_INT_END do
@@ -731,7 +731,6 @@ do
         if n8 == nil then
             return nil, err
         end
-        print(false, n8)
         return -n8
     end
 
@@ -1125,4 +1124,5 @@ return {
 
     chars = chars
 }
+
 
