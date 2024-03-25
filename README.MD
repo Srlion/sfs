@@ -40,7 +40,7 @@ print(decoded)
 local sfs = include('sfs.lua')
 
 -- To encode an array
-local encoded, err = sfs.encode_array({false, true, nil, 1, 2, 3}, 3)
+local encoded, err = sfs.encode_array({false, true, nil, 1, 2, 3}, 6)
 if err then
     print("Error encoding data: ", err)
     return
@@ -59,10 +59,13 @@ print(decoded)
 ## Functions
 
 - `encode(data)` Encodes the given data into a string. Returns the encoded string, an error string, and a secondary error string. If the encoding is successful, the error strings will be nil.
+
 - `encode_array(array, array_size)` Does internally what encode does, but it's to encode arrays.
-- `encode_with_buffer(data, buffer, max_size)` Similar to encode, but allows you to provide a buffer for the encoding. This can be more efficient if you're encoding many pieces of data in a loop. max_size is the max buffer length it can reach before resetting.
+
 - `decode(encoded_data)` Decodes the given string into the original data. Returns the decoded data, an error string, and a secondary error string. If the decoding is successful, the error strings will be nil.
+
 - `decode_with_max_size(encoded_data, max_size)` Similar to decode, but allows you to specify a maximum size for the decoded data. This can be useful for preventing denial-of-service attacks where an attacker sends a very large encoded string.
+
 - `set_type_function(t_fn)` Sets a custom type function. This can be useful if you have custom type function that you want the library to use instead of global `type` function.
 
 Note

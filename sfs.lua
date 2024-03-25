@@ -19,18 +19,6 @@ local HUGE = math.huge
 local floor = math.floor
 local type = type
 
--- string.char is not jit compiled in luajit 2.0.5
-local char; do
-    local chars = {}
-    for i = 0, 255 do
-        chars[i] = string.char(i)
-    end
-
-    char = function(b)
-        return chars[b]
-    end
-end
-
 local MAX_NUMBER = 1.7976931348623e+308
 local MIN_NUMBER = -MAX_NUMBER
 
@@ -101,6 +89,13 @@ do
     local concat = table.concat
     local write, write_unsigned, write_double
 
+    -- string.char is not jit compiled in luajit 2.0.5
+    local chars = {}; do
+        for i = 0, 255 do
+            chars[i] = string.char(i)
+        end
+    end
+
     -- garry's mod related
     local Vector_Unpack, Angle_Unpack
     local Entity_EntIndex, Player_UserID
@@ -128,7 +123,8 @@ do
     }
 
     -- this function is obviously not jit compiled in luajit 2.0.5 but internal functions are
-    function Encoder.encode(v)
+    function Encoder.encode(v, max_cache_size)
+        max_cache_size = max_cache_size or 2000
         buffer[0] = 0
 
         local encoder = get_encoder(buffer, v)
@@ -136,14 +132,15 @@ do
             return nil, concat(buffer, nil, buffer[0] - 1, buffer[0])
         end
 
-        if encoder(buffer, v) == true then -- if it returns true, it means there was an error
+        if encoder(buffer, v, arg) == true then -- if it returns true, it means there was an error
             -- error is never compiled, so we never error to avoid that
             -- concating in luajit 2.0.5 is NYI, we make sure that all encoders' functions get jit compiled
             return nil, concat(buffer, nil, buffer[0] - 1, buffer[0])
         end
 
         local result = concat(buffer, nil, 1, buffer[0])
-        if #buffer > 2000 then
+
+        if #buffer > max_cache_size then
             buffer = {
                 [0] = 0 -- buffer length
             }
@@ -152,47 +149,19 @@ do
         return result
     end
 
-    function Encoder.encode_with_buffer(v, buf, max_size)
-        buf[0] = 0
-
-        local encoder = get_encoder(buf, v)
-        if encoder == nil then
-            return nil, concat(buf, nil, buf[0] - 1, buf[0])
-        end
-
-        if encoder(buf, v) == true then -- if it returns true, it means there was an error
-            -- error is never compiled, so we never error to avoid that
-            -- concating in luajit 2.0.5 is NYI, we make sure that all encoders' functions get jit compiled
-            return nil, concat(buf, nil, buf[0] - 1, buf[0])
-        end
-
-        local result = concat(buf, nil, 1, buf[0])
-        if #buf > max_size then
-            buf = {
-                [0] = 0 -- buffer length
-            }
-        end
-
-        return result
-    end
-
-    function Encoder.encode_array(a, n)
-        if type(a) ~= "table" then
-            return nil, "Array is not a table: ", a
-        end
-
-        if type(n) ~= "number" then
-            return nil, "Array size is not a number: ", n
-        end
-
+    function Encoder.encode_array(a, n, max_cache_size)
+        max_cache_size = max_cache_size or 2000
         buffer[0] = 0
 
-        if encoders.array(buffer, a, n)  == true then -- if it returns true, it means there was an error
+        if encoders.array(buffer, a, n) == true then -- if it returns true, it means there was an error
+            -- error is never compiled, so we never error to avoid that
+            -- concating in luajit 2.0.5 is NYI, we make sure that all encoders' functions get jit compiled
             return nil, concat(buffer, nil, buffer[0] - 1, buffer[0])
         end
 
         local result = concat(buffer, nil, 1, buffer[0])
-        if #buffer > 2000 then
+
+        if #buffer > max_cache_size then
             buffer = {
                 [0] = 0 -- buffer length
             }
@@ -209,14 +178,14 @@ do
     Encoder.write = write
 
     encoders["nil"] = function(buf)
-        write(buf, char(NIL))
+        write(buf, chars[NIL])
     end
 
     function encoders.boolean(buf, b)
         if b == true then
-            write(buf, char(TRUE))
+            write(buf, chars[TRUE])
         else
-            write(buf, char(FALSE))
+            write(buf, chars[FALSE])
         end
     end
 
@@ -232,7 +201,7 @@ do
         end
 
         if n <= 0xF then
-            write(buf, char(ARRAY_FIXED + n))
+            write(buf, chars[ARRAY_FIXED + n])
         else
             write_unsigned(buf, ARRAY_8, n)
         end
@@ -279,7 +248,7 @@ do
 
         -- write the table size
         if table_count <= 0xF then
-            write(buf, char(TABLE_FIXED + table_count))
+            write(buf, chars[TABLE_FIXED + table_count])
         else
             if table_count > 0xFFFFFFFF then
                 write(buf, "Table size too large to encode: ")
@@ -300,7 +269,7 @@ do
         end
 
         if str_len <= 0x1F then
-            write(buf, char(STR_FIXED + str_len))
+            write(buf, chars[STR_FIXED + str_len])
         else
             write_unsigned(buf, STR_8, str_len)
         end
@@ -323,7 +292,7 @@ do
             write_double(buf, DOUBLE, n)
         else
             if n <= 0x7F then
-                write(buf, char(FIXED_TAG + n))
+                write(buf, chars[FIXED_TAG + n])
             else
                 write_unsigned(buf, TAG, n)
             end
@@ -331,7 +300,7 @@ do
     end
 
     function encoders.Vector(buf, v)
-        write(buf, char(VECTOR))
+        write(buf, chars[VECTOR])
         local x, y, z = Vector_Unpack(v)
         encoders.number(buf, x)
         encoders.number(buf, y)
@@ -339,7 +308,7 @@ do
     end
 
     function encoders.Angle(buf, a)
-        write(buf, char(ANGLE))
+        write(buf, chars[ANGLE])
         local p, y, r = Angle_Unpack(a)
         encoders.number(buf, p)
         encoders.number(buf, y)
@@ -347,17 +316,17 @@ do
     end
 
     function encoders.Entity(buf, e)
-        write(buf, char(ENTITY))
+        write(buf, chars[ENTITY])
         encoders.number(buf, Entity_EntIndex(e))
     end
 
     function encoders.Player(buf, p)
-        write(buf, char(PLAYER))
+        write(buf, chars[PLAYER])
         encoders.number(buf, Player_UserID(p))
     end
 
     function encoders.Color(buf, c)
-        write(buf, char(COLOR))
+        write(buf, chars[COLOR])
         encoders.number(buf, c.r)
         encoders.number(buf, c.g)
         encoders.number(buf, c.b)
@@ -366,27 +335,27 @@ do
 
     function write_unsigned(buf, tag, n)
         if n <= 0xFF then -- uint8
-            write(buf, char(tag + 0x00))
-            write(buf, char(n))
+            write(buf, chars[tag + 0x00])
+            write(buf, chars[n])
         elseif n <= 0xFFFF then -- uint16
-            write(buf, char(tag + 0x01))
-            write(buf, char(floor(n / 256)))
-            write(buf, char(n % 256))
+            write(buf, chars[tag + 0x01])
+            write(buf, chars[floor(n / 256)])
+            write(buf, chars[n % 256])
         elseif n <= 0xFFFFFFFF then -- uint32
-            write(buf, char(tag + 0x02))
-            write(buf, char(floor(n / 0x1000000) % 256))
-            write(buf, char(floor(n / 0x10000) % 256))
-            write(buf, char(floor(n / 256) % 256))
-            write(buf, char(n % 256))
+            write(buf, chars[tag + 0x02])
+            write(buf, chars[floor(n / 0x1000000) % 256])
+            write(buf, chars[floor(n / 0x10000) % 256])
+            write(buf, chars[floor(n / 256) % 256])
+            write(buf, chars[n % 256])
         elseif n <= 0xFFFFFFFFFFFFF then -- uint52
-            write(buf, char(tag + 0x3))
-            write(buf, char(n % 256))
-            write(buf, char(floor(n / 256) % 256))
-            write(buf, char(floor(n / 0x10000) % 256))
-            write(buf, char(floor(n / 0x1000000) % 256))
-            write(buf, char(floor(n / 0x100000000) % 256))
-            write(buf, char(floor(n / 0x10000000000) % 256))
-            write(buf, char(floor(n / 0x1000000000000) % 256))
+            write(buf, chars[tag + 0x3])
+            write(buf, chars[n % 256])
+            write(buf, chars[floor(n / 256) % 256])
+            write(buf, chars[floor(n / 0x10000) % 256])
+            write(buf, chars[floor(n / 0x1000000) % 256])
+            write(buf, chars[floor(n / 0x100000000) % 256])
+            write(buf, chars[floor(n / 0x10000000000) % 256])
+            write(buf, chars[floor(n / 0x1000000000000) % 256])
         end
     end
     Encoder.write_unsigned = write_unsigned
@@ -431,15 +400,15 @@ do
         local exp_out = exponent + 1023
         local fraction_out = fraction * 0x10000000000000
 
-        write(buf, char(tag))
-        write(buf, char(128 * sign + floor(exp_out / 16)))
-        write(buf, char((exp_out % 16) * 16 + floor(fraction_out / 0x1000000000000)))
-        write(buf, char(floor(fraction_out / 0x10000000000) % 256))
-        write(buf, char(floor(fraction_out / 0x100000000) % 256))
-        write(buf, char(floor(fraction_out / 0x1000000) % 256))
-        write(buf, char(floor(fraction_out / 0x10000) % 256))
-        write(buf, char(floor(fraction_out / 0x100) % 256))
-        write(buf, char(floor(fraction_out % 256)))
+        write(buf, chars[tag])
+        write(buf, chars[128 * sign + floor(exp_out / 16)])
+        write(buf, chars[(exp_out % 16) * 16 + floor(fraction_out / 0x1000000000000)])
+        write(buf, chars[floor(fraction_out / 0x10000000000) % 256])
+        write(buf, chars[floor(fraction_out / 0x100000000) % 256])
+        write(buf, chars[floor(fraction_out / 0x1000000) % 256])
+        write(buf, chars[floor(fraction_out / 0x10000) % 256])
+        write(buf, chars[floor(fraction_out / 0x100) % 256])
+        write(buf, chars[floor(fraction_out % 256)])
     end
     Encoder.write_double = write_double
 end
@@ -451,12 +420,12 @@ local Decoder = {
 do
     local sub = string.sub
 
+    local read_type, read_byte, read_word, read_dword
+    local decode_array, decode_table, decode_string, decode_double
+
     -- garry's mod related
     local Vector, Angle, Entity, Player, Color = Vector, Angle, Entity, Player, Color
     --
-
-    local read_type, read_byte, read_word, read_dword
-    local decode_array, decode_table, decode_string, decode_double
 
     local str_byte = string.byte
     local byte = function(ctx, size)
@@ -488,8 +457,8 @@ do
         HUGE, -- max size for decode, useful when decoding from user input that was sent over netmessages
     }
 
-    local decode = function(ctx)
-        if ctx[3] < 1 then -- this will make string.byte fail
+    local decode = function()
+        if context[3] < 1 then -- this will make string.byte fail
             return nil, "Buffer is empty"
         end
 
@@ -497,12 +466,12 @@ do
         local decoder
         local v
 
-        decoder, err, err_2 = get_decoder(ctx)
+        decoder, err, err_2 = get_decoder(context)
         if err ~= nil then
             return nil, err, err_2
         end
 
-        v, err, err_2 = decoder(ctx)
+        v, err, err_2 = decoder(context)
         if err ~= nil then
             return nil, err, err_2
         end
@@ -516,7 +485,7 @@ do
         context[3] = #str
         context[4] = HUGE
 
-        return decode(context)
+        return decode()
     end
 
     function Decoder.decode_with_max_size(str, max_size)
@@ -533,7 +502,7 @@ do
         context[3] = #str
         context[4] = max_size
 
-        return decode(context)
+        return decode()
     end
 
     decoders[NIL] = function(ctx)
