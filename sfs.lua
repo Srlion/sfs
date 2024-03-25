@@ -488,27 +488,31 @@ do
         HUGE, -- max size for decode, useful when decoding from user input that was sent over netmessages
     }
 
+    local decode = function(ctx)
+        local err, err_2
+        local decoder
+        local v
+
+        decoder, err, err_2 = get_decoder(ctx)
+        if err ~= nil then
+            return nil, err, err_2
+        end
+
+        v, err, err_2 = decoder(ctx)
+        if err ~= nil then
+            return nil, err, err_2
+        end
+
+        return v
+    end
+
     function Decoder.decode(str)
         context[1] = 1
         context[2] = str
         context[3] = #str
         context[4] = HUGE
 
-        local err, err_2
-        local decoder
-        local v
-
-        decoder, err, err_2 = get_decoder(context)
-        if err ~= nil then
-            return nil, err, err_2
-        end
-
-        v, err, err_2 = decoder(context)
-        if err ~= nil then
-            return nil, err, err_2
-        end
-
-        return v
+        return decode(context)
     end
 
     function Decoder.decode_with_max_size(str, max_size)
@@ -520,26 +524,12 @@ do
             return nil, "max_size can either be a positive number or math.huge for unlimited", max_size
         end
 
-        local err, err_2
-        local decoder
-        local v
-
         context[1] = 1
         context[2] = str
         context[3] = #str
         context[4] = max_size
 
-        decoder, err, err_2 = get_decoder(context)
-        if err ~= nil then
-            return nil, err, err_2
-        end
-
-        v, err, err_2 = decoder(context)
-        if err ~= nil then
-            return nil, err, err_2
-        end
-
-        return v
+        return decode(context)
     end
 
     decoders[NIL] = function(ctx)
