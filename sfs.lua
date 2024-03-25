@@ -1150,4 +1150,5 @@ return {
     end,
 
     chars = chars,
+    VERSION = "2.0.0"
 }
