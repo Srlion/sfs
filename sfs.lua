@@ -489,6 +489,10 @@ do
     }
 
     local decode = function(ctx)
+        if ctx[3] < 1 then -- this will make string.byte failZ
+            return nil, "Buffer is empty"
+        end
+
         local err, err_2
         local decoder
         local v
