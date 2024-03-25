@@ -154,6 +154,23 @@ do
         return result
     end
 
+    function Encoder.encode_array(a)
+        buffer[0] = 0
+
+        if encoders.array(buffer, a, #a)  == true then
+            return nil, concat(buffer, nil, buffer[0] - 1, buffer[0])
+        end
+
+        local result = concat(buffer, nil, 1, buffer[0])
+        if #buffer > 2000 then
+            buffer = {
+                [0] = 0 -- buffer length
+            }
+        end
+
+        return result
+    end
+
     function write(buf, c)
         local buf_len = buf[0] + 1
         buf[0] = buf_len
