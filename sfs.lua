@@ -159,6 +159,7 @@ do
         buf[0] = buf_len
         buf[buf_len] = c
     end
+    Encoder.write = write
 
     encoders["nil"] = function(buf)
         write(buf, char(NIL))
@@ -334,6 +335,7 @@ do
             write(buf, char(floor(n / 0x1000000000000) % 256))
         end
     end
+    Encoder.write_unsigned = write_unsigned
 
     -- i can't remember where i got this from, but it's not mine (i swear i always credit people)
     local log2 = log(2)
@@ -385,6 +387,7 @@ do
         write(buf, char(floor(fraction_out / 0x100) % 256))
         write(buf, char(floor(fraction_out % 256)))
     end
+    Encoder.write_double = write_double
 end
 
 local decoders = {}
@@ -409,6 +412,7 @@ do
         ctx[1] = index + size
         return str_byte(ctx[2], index, index + size - 1)
     end
+    Decoder.byte = byte
 
     local get_decoder = function(ctx)
         local t = read_type(ctx)
@@ -418,6 +422,7 @@ do
         end
         return decoder
     end
+    Decoder.get_decoder = get_decoder
 
     local context = {
         1,  -- index
@@ -939,6 +944,7 @@ do
         end
         return a
     end
+    Decoder.decode_array = decode_array
 
     function decode_table(ctx, n)
         local err, err_2
@@ -976,6 +982,7 @@ do
         end
         return t
     end
+    Decoder.decode_table = decode_table
 
     function decode_string(ctx, n)
         local index = ctx[1]
@@ -987,6 +994,7 @@ do
         ctx[1] = index + n
         return sub(ctx[2], index, index + n - 1)
     end
+    Decoder.decode_string = decode_string
 
     function decode_double(ctx)
         local b1, b2, b3, b4, b5, b6, b7, b8 = byte(ctx, 8)
@@ -1015,11 +1023,13 @@ do
             return ((sign == 0 and 1) or -1) * (2 ^ (exponent - 1023)) * ((fraction / 0x10000000000000) + 1)
         end
     end
+    Decoder.decode_double = decode_double
 
     function read_type(ctx)
         local t = str_byte(ctx[2], ctx[1])
         return t
     end
+    Decoder.read_type = read_type
 
     function read_byte(ctx)
         local b, err = byte(ctx, 1)
@@ -1028,6 +1038,7 @@ do
         end
         return b
     end
+    Decoder.read_byte = read_byte
 
     function read_word(ctx)
         local b1, b2 = byte(ctx, 2)
@@ -1036,6 +1047,7 @@ do
         end
         return b1 * 0x100 + b2
     end
+    Decoder.read_word = read_word
 
     function read_dword(ctx)
         local b1, b2, b3, b4 = byte(ctx, 4)
@@ -1044,6 +1056,7 @@ do
         end
         return b1 * 0x1000000 + b2 * 0x10000 + b3 * 0x100 + b4
     end
+    Decoder.read_dword = read_dword
 end
 
 return {
@@ -1059,4 +1072,19 @@ return {
     set_type_function = function(t_fn) -- this is for me as I have custom type function in sam/scb to allow type function to get jit compiled :c
         type = t_fn
     end,
+
+    add_encoder = function(t, encoder)
+        encoders[t] = encoder
+        if FREE_FOR_CUSTOM == FREE_FOR_CUSTOM_END then
+            return nil, "No more free slots for custom encoders"
+        end
+        FREE_FOR_CUSTOM = FREE_FOR_CUSTOM + 1
+        return FREE_FOR_CUSTOM - 1
+    end,
+
+    add_decoder = function(t, decoder)
+        decoders[t] = decoder
+    end,
+
+    char = char
 }
