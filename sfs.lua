@@ -1107,5 +1107,5 @@ return {
         decoders[t] = decoder
     end,
 
-    char = char
+    chars = chars
 }
