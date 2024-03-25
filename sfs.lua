@@ -78,7 +78,13 @@ local PLAYER = 0xd8
 
 local COLOR = 0xd9
 
-local FREE_FOR_CUSTOM = 0xda
+-- this was added in version 2.0.0
+-- it's used for arrays that start at 0, I'm not sure if lua 5.1 has same behavior as luajit 2.0.5
+-- but luajit 2.0.5 supports starting arrays at 0 index, so checking if table is an array or not gets messed up and output is wrong
+-- so if you supply local t = {[0] = 0, 1, 2, 3} and do next(t, #t) it will return (nil, nil) instead of (0, 0)
+local ARRAY_ZERO_BASED_INDEX = 0xda
+
+local FREE_FOR_CUSTOM = 0xdb
 local FREE_FOR_CUSTOM_END = 0xdf
 
 local NEGATIVE_INT = 0xe0
@@ -124,16 +130,16 @@ do
     }
 
     -- this function is obviously not jit compiled in luajit 2.0.5 but internal functions are
-    function Encoder.encode(v, max_cache_size)
+    function Encoder.encode(val, max_cache_size)
         max_cache_size = max_cache_size or 2000
         buffer[0] = 0
 
-        local encoder = get_encoder(buffer, v)
+        local encoder = get_encoder(buffer, val)
         if encoder == nil then
             return nil, concat(buffer, nil, buffer[0] - 1, buffer[0])
         end
 
-        if encoder(buffer, v, arg) == true then -- if it returns true, it means there was an error
+        if encoder(buffer, val, arg) == true then -- if it returns true, it means there was an error
             -- error is never compiled, so we never error to avoid that
             -- concating in luajit 2.0.5 is NYI, we make sure that all encoders' functions get jit compiled
             return nil, concat(buffer, nil, buffer[0] - 1, buffer[0])
@@ -150,11 +156,11 @@ do
         return result
     end
 
-    function Encoder.encode_array(a, n, max_cache_size)
+    function Encoder.encode_array(arr, len, max_cache_size)
         max_cache_size = max_cache_size or 2000
         buffer[0] = 0
 
-        if encoders.array(buffer, a, n) == true then -- if it returns true, it means there was an error
+        if encoders.array(buffer, arr, len) == true then -- if it returns true, it means there was an error
             -- error is never compiled, so we never error to avoid that
             -- concating in luajit 2.0.5 is NYI, we make sure that all encoders' functions get jit compiled
             return nil, concat(buffer, nil, buffer[0] - 1, buffer[0])
@@ -171,10 +177,10 @@ do
         return result
     end
 
-    function write(buf, c)
+    function write(buf, chr)
         local buf_len = buf[0] + 1
         buf[0] = buf_len
-        buf[buf_len] = c
+        buf[buf_len] = chr
     end
     Encoder.write = write
 
@@ -182,48 +188,58 @@ do
         write(buf, chars[NIL])
     end
 
-    function encoders.boolean(buf, b)
-        if b == true then
+    function encoders.boolean(buf, bool)
+        if bool == true then
             write(buf, chars[TRUE])
         else
             write(buf, chars[FALSE])
         end
     end
 
-    function encoders.array(buf, a, n)
-        if n < 0 then
+    function encoders.array(buf, arr, len, start_index)
+        start_index = (start_index == nil or start_index ~= 0 and start_index ~= 1) and 1 or start_index
+
+        if len < 0 then
             write(buf, "Array size cannot be negative: ")
-            write(buf, n)
+            write(buf, len)
             return true
-        elseif n > 0xFFFFFFFF then
+        elseif len > 0xFFFFFFFF then
             write(buf, "Array size too large to encode: ")
-            write(buf, n)
+            write(buf, len)
             return true
         end
 
-        if n <= 0xF then
-            write(buf, chars[ARRAY_FIXED + n])
+        if len <= 0xF then
+            write(buf, chars[ARRAY_FIXED + len])
         else
-            write_unsigned(buf, ARRAY_8, n)
+            write_unsigned(buf, ARRAY_8, len)
         end
 
-        for i = 1, n do
-            local v = a[i]
-            local encoder = get_encoder(buf, v)
+        if start_index == 0 then
+            write(buf, chars[ARRAY_ZERO_BASED_INDEX])
+        end
+
+        for idx = start_index, len do
+            local val = arr[idx]
+            local encoder = get_encoder(buf, val)
             if encoder == nil then return true end
-            encoder(buf, v)
+            encoder(buf, val)
         end
     end
 
     -- we can't check if a table is an array or not because lua tables are not arrays, they are tables
     -- use Encoder.encode_array if you want to encode an array
-    function encoders.table(buf, t)
+    function encoders.table(buf, tbl)
         -- check if it's an array, it's not accurate for arrays with holes but better than nothing
         do
             -- this is the fastest possible way, a lot better than cbor's/messagepack's/pon's way of checking if it's an array
-            local tbl_len = #t
-            if tbl_len > 0 and next(t, tbl_len) == nil then
-                return encoders.array(buf, t, tbl_len)
+            local tbl_len = #tbl
+            if tbl_len > 0 and next(tbl, tbl_len) == nil then
+                if tbl[0] ~= nil then
+                    return encoders.array(buf, tbl, tbl_len, 0)
+                else
+                    return encoders.array(buf, tbl, tbl_len)
+                end
             end
         end
 
@@ -233,24 +249,24 @@ do
         -- we add 5 empty strings because we don't know if table size is going to be a fixed number, uint8, uint16 or uint32
         -- uint32 takes 5 bytes, so we add 5 empty strings
         do
-            for i = 1, 5 do
-                buf[buf_len + i] = ""
+            for idx = 1, 5 do
+                buf[buf_len + idx] = ""
             end
             buf_len = buf_len + 5
             buf[0] = buf_len
         end
 
         local table_count = 0
-        for k, v in pairs(t) do
+        for key, val in pairs(tbl) do
             table_count = table_count + 1
 
-            local encoder_k = get_encoder(buf, k)
-            if encoder_k == nil then return true end
-            encoder_k(buf, k)
+            local encoder_key = get_encoder(buf, key)
+            if encoder_key == nil then return true end
+            encoder_key(buf, key)
 
-            local encoder_v = get_encoder(buf, v)
-            if encoder_v == nil then return true end
-            encoder_v(buf, v)
+            local encoder_val = get_encoder(buf, val)
+            if encoder_val == nil then return true end
+            encoder_val(buf, val)
         end
 
         local table_end = buf[0] -- we store the end of the table because we need to change current buffer index to the start of the table to write the table size
@@ -267,6 +283,7 @@ do
             end
             write_unsigned(buf, TABLE_8, table_count)
         end
+
         buf[0] = table_end -- change current buffer index back to the end of the table
     end
 
@@ -286,91 +303,91 @@ do
         write(buf, str)
     end
 
-    function encoders.number(buf, n)
-        if (n > MAX_NUMBER and n ~= HUGE) or (n < MIN_NUMBER and n ~= -HUGE) then
+    function encoders.number(buf, num)
+        if (num > MAX_NUMBER and num ~= HUGE) or (num < MIN_NUMBER and num ~= -HUGE) then
             write(buf, "Number too large to encode: ")
-            write(buf, n)
+            write(buf, num)
             return true
         end
 
-        if n % 1 ~= 0 or n > 0xFFFFFFFFFFFFF or n < -0xFFFFFFFFFFFFF then -- DOUBLE
-            write_double(buf, DOUBLE, n)
+        if num % 1 ~= 0 or num > 0xFFFFFFFFFFFFF or num < -0xFFFFFFFFFFFFF then -- DOUBLE
+            write_double(buf, DOUBLE, num)
             return
         end
 
-        if n < 0 then
-            n = -n
-            if n <= 0x1F then
-                write(buf, chars[NEGATIVE_INT + n])
+        if num < 0 then
+            num = -num
+            if num <= 0x1F then
+                write(buf, chars[NEGATIVE_INT + num])
             else
-                write_unsigned(buf, NINT_8, n)
+                write_unsigned(buf, NINT_8, num)
             end
         else
-            if n <= 0x7F then
-                write(buf, chars[POSITIVE_INT + n])
+            if num <= 0x7F then
+                write(buf, chars[POSITIVE_INT + num])
             else
-                write_unsigned(buf, UINT_8, n)
+                write_unsigned(buf, UINT_8, num)
             end
         end
     end
 
-    function encoders.Vector(buf, v)
+    function encoders.Vector(buf, vec)
         write(buf, chars[VECTOR])
-        local x, y, z = Vector_Unpack(v)
+        local x, y, z = Vector_Unpack(vec)
         encoders.number(buf, x)
         encoders.number(buf, y)
         encoders.number(buf, z)
     end
 
-    function encoders.Angle(buf, a)
+    function encoders.Angle(buf, ang)
         write(buf, chars[ANGLE])
-        local p, y, r = Angle_Unpack(a)
+        local p, y, r = Angle_Unpack(ang)
         encoders.number(buf, p)
         encoders.number(buf, y)
         encoders.number(buf, r)
     end
 
-    function encoders.Entity(buf, e)
+    function encoders.Entity(buf, ent)
         write(buf, chars[ENTITY])
-        encoders.number(buf, Entity_EntIndex(e))
+        encoders.number(buf, Entity_EntIndex(ent))
     end
 
-    function encoders.Player(buf, p)
+    function encoders.Player(buf, ply)
         write(buf, chars[PLAYER])
-        encoders.number(buf, Player_UserID(p))
+        encoders.number(buf, Player_UserID(ply))
     end
 
-    function encoders.Color(buf, c)
+    function encoders.Color(buf, col)
         write(buf, chars[COLOR])
-        encoders.number(buf, c.r)
-        encoders.number(buf, c.g)
-        encoders.number(buf, c.b)
-        encoders.number(buf, c.a)
+        encoders.number(buf, col.r)
+        encoders.number(buf, col.g)
+        encoders.number(buf, col.b)
+        encoders.number(buf, col.a)
     end
 
-    function write_unsigned(buf, tag, n)
-        if n <= 0xFF then -- uint8
+    function write_unsigned(buf, tag, num)
+        if num <= 0xFF then -- uint8
             write(buf, chars[tag + 0x00])
-            write(buf, chars[n])
-        elseif n <= 0xFFFF then -- uint16
+            write(buf, chars[num])
+        elseif num <= 0xFFFF then -- uint16
             write(buf, chars[tag + 0x01])
-            write(buf, chars[floor(n / 256)])
-            write(buf, chars[n % 256])
-        elseif n <= 0xFFFFFFFF then -- uint32
+            write(buf, chars[floor(num / 256)])
+            write(buf, chars[num % 256])
+        elseif num <= 0xFFFFFFFF then -- uint32
             write(buf, chars[tag + 0x02])
-            write(buf, chars[floor(n / 0x1000000) % 256])
-            write(buf, chars[floor(n / 0x10000) % 256])
-            write(buf, chars[floor(n / 256) % 256])
-            write(buf, chars[n % 256])
-        elseif n <= 0xFFFFFFFFFFFFF then -- uint52
+            write(buf, chars[floor(num / 0x1000000) % 256])
+            write(buf, chars[floor(num / 0x10000) % 256])
+            write(buf, chars[floor(num / 256) % 256])
+            write(buf, chars[num % 256])
+        elseif num <= 0xFFFFFFFFFFFFF then -- uint52
             write(buf, chars[tag + 0x3])
-            write(buf, chars[n % 256])
-            write(buf, chars[floor(n / 256) % 256])
-            write(buf, chars[floor(n / 0x10000) % 256])
-            write(buf, chars[floor(n / 0x1000000) % 256])
-            write(buf, chars[floor(n / 0x100000000) % 256])
-            write(buf, chars[floor(n / 0x10000000000) % 256])
-            write(buf, chars[floor(n / 0x1000000000000) % 256])
+            write(buf, chars[num % 256])
+            write(buf, chars[floor(num / 256) % 256])
+            write(buf, chars[floor(num / 0x10000) % 256])
+            write(buf, chars[floor(num / 0x1000000) % 256])
+            write(buf, chars[floor(num / 0x100000000) % 256])
+            write(buf, chars[floor(num / 0x10000000000) % 256])
+            write(buf, chars[floor(num / 0x1000000000000) % 256])
         end
     end
     Encoder.write_unsigned = write_unsigned
@@ -479,19 +496,19 @@ do
 
         local err, err_2
         local decoder
-        local v
+        local val
 
         decoder, err, err_2 = get_decoder(context)
         if err ~= nil then
             return nil, err, err_2
         end
 
-        v, err, err_2 = decoder(context)
+        val, err, err_2 = decoder(context)
         if err ~= nil then
             return nil, err, err_2
         end
 
-        return v
+        return val
     end
 
     function Decoder.decode(str)
@@ -537,12 +554,12 @@ do
 
     --
     decoders[ARRAY_FIXED] = function(ctx)
-        local b, err = read_byte(ctx)
-        if b == nil then
+        local bty, err = read_byte(ctx)
+        if bty == nil then
             return nil, err
         end
-        local n = b - ARRAY_FIXED
-        return decode_array(ctx, n)
+        local len = bty - ARRAY_FIXED
+        return decode_array(ctx, len)
     end
 
     for i = ARRAY_FIXED + 1, ARRAY_FIXED_END do
@@ -552,39 +569,39 @@ do
 
     decoders[ARRAY_8] = function(ctx)
         ctx[1] = ctx[1] + 1
-        local n, err = read_byte(ctx)
-        if n == nil then
+        local len, err = read_byte(ctx)
+        if len == nil then
             return nil, err
         end
-        return decode_array(ctx, n)
+        return decode_array(ctx, len)
     end
 
     decoders[ARRAY_16] = function(ctx)
         ctx[1] = ctx[1] + 1
-        local n, err = read_word(ctx)
+        local len, err = read_word(ctx)
         if err ~= nil then
             return nil, err
         end
-        return decode_array(ctx, n)
+        return decode_array(ctx, len)
     end
 
     decoders[ARRAY_32] = function(ctx)
         ctx[1] = ctx[1] + 1
-        local n, err = read_dword(ctx)
+        local len, err = read_dword(ctx)
         if err ~= nil then
             return nil, err
         end
-        return decode_array(ctx, n)
+        return decode_array(ctx, len)
     end
 
     --
     decoders[TABLE_FIXED] = function(ctx)
-        local b, err = read_byte(ctx)
-        if b == nil then
+        local bty, err = read_byte(ctx)
+        if bty == nil then
             return nil, err
         end
-        local n = b - TABLE_FIXED
-        return decode_table(ctx, n)
+        local len = bty - TABLE_FIXED
+        return decode_table(ctx, len)
     end
 
     for i = TABLE_FIXED + 1, TABLE_FIXED_END do
@@ -594,39 +611,39 @@ do
 
     decoders[TABLE_8] = function(ctx)
         ctx[1] = ctx[1] + 1
-        local n, err = read_byte(ctx)
+        local len, err = read_byte(ctx)
         if err ~= nil then
             return nil, err
         end
-        return decode_table(ctx, n)
+        return decode_table(ctx, len)
     end
 
     decoders[TABLE_16] = function(ctx)
         ctx[1] = ctx[1] + 1
-        local n, err = read_word(ctx)
+        local len, err = read_word(ctx)
         if err ~= nil then
             return nil, err
         end
-        return decode_table(ctx, n)
+        return decode_table(ctx, len)
     end
 
     decoders[TABLE_32] = function(ctx)
         ctx[1] = ctx[1] + 1
-        local n, err = read_dword(ctx)
+        local len, err = read_dword(ctx)
         if err ~= nil then
             return nil, err
         end
-        return decode_table(ctx, n)
+        return decode_table(ctx, len)
     end
 
     --
     decoders[STR_FIXED] = function(ctx)
-        local b, err = read_byte(ctx)
+        local bty, err = read_byte(ctx)
         if err ~= nil then
             return nil, err
         end
-        local n = b - STR_FIXED
-        return decode_string(ctx, n)
+        local len = bty - STR_FIXED
+        return decode_string(ctx, len)
     end
 
     for i = STR_FIXED + 1, STR_FIXED_END do
@@ -636,38 +653,38 @@ do
 
     decoders[STR_8] = function(ctx)
         ctx[1] = ctx[1] + 1
-        local n, err = read_byte(ctx)
+        local len, err = read_byte(ctx)
         if err ~= nil then
             return nil, err
         end
-        return decode_string(ctx, n)
+        return decode_string(ctx, len)
     end
 
     decoders[STR_16] = function(ctx)
         ctx[1] = ctx[1] + 1
-        local n, err = read_word(ctx)
+        local len, err = read_word(ctx)
         if err ~= nil then
             return nil, err
         end
-        return decode_string(ctx, n)
+        return decode_string(ctx, len)
     end
 
     decoders[STR_32] = function(ctx)
         ctx[1] = ctx[1] + 1
-        local n, err = read_dword(ctx)
+        local len, err = read_dword(ctx)
         if err ~= nil then
             return nil, err
         end
-        return decode_string(ctx, n)
+        return decode_string(ctx, len)
     end
 
     --
     decoders[POSITIVE_INT] = function(ctx)
-        local b, err = read_byte(ctx)
+        local bty, err = read_byte(ctx)
         if err ~= nil then
             return nil, err
         end
-        return b - POSITIVE_INT
+        return bty - POSITIVE_INT
     end
 
     for i = POSITIVE_INT + 1, POSITIVE_INT_END do
@@ -713,11 +730,11 @@ do
 
     --
     decoders[NEGATIVE_INT] = function(ctx)
-        local b, err = read_byte(ctx)
-        if b == nil then
+        local bty, err = read_byte(ctx)
+        if bty == nil then
             return nil, err
         end
-        return NEGATIVE_INT - b
+        return NEGATIVE_INT - bty
     end
 
     for i = NEGATIVE_INT + 1, NEGATIVE_INT_END do
@@ -956,78 +973,88 @@ do
         return Color(r, g, b, a)
     end
 
-    function decode_array(ctx, n)
+    function decode_array(ctx, len)
         -- zzzzz no table.new or table.setn, we try to allocate small space to avoid table resizing for small tables
-        local a = {nil, nil, nil, nil, nil, nil, nil, nil}
-        a[n] = true
-        for i = 1, n do
+        local arr = {nil, nil, nil, nil, nil, nil, nil, nil}
+
+        local start_index = 1
+        if read_type(ctx) == ARRAY_ZERO_BASED_INDEX then
+            ctx[1] = ctx[1] + 1
+            start_index = 0
+        end
+
+        for idx = start_index, len do
             local err, err_2
             local decoder
-            local v
+            local val
 
             decoder, err, err_2 = get_decoder(ctx)
             if err ~= nil then
                 return nil, err, err_2
             end
 
-            v, err = decoder(ctx)
+            val, err = decoder(ctx)
             if err ~= nil then
                 return nil, err
             end
 
-            a[i] = v
+            arr[idx] = val
         end
-        return a
+
+        return arr
     end
     Decoder.decode_array = decode_array
 
-    function decode_table(ctx, n)
+    function decode_table(ctx, len)
         local err, err_2
         local decoder
-        local k, v
+        local key, val
 
         -- zzzzz no table.new or table.setn, we try to allocate small space to avoid table resizing for small tables
-        local t = {nil, nil, nil, nil, nil, nil, nil, nil}
-        for i = 1, n do
-            -- k
+        local tbl = {nil, nil, nil, nil, nil, nil, nil, nil}
+        for _ = 1, len do
+            -- key
             decoder, err, err_2 = get_decoder(ctx)
             if err ~= nil then
                 return nil, err, err_2
             end
 
-            k, err = decoder(ctx)
+            key, err = decoder(ctx)
             if err ~= nil then
                 return nil, err
             end
             --
 
-            -- v
+            -- val
             decoder, err, err_2 = get_decoder(ctx)
             if err ~= nil then
                 return nil, err, err_2
             end
 
-            v, err = decoder(ctx)
+            val, err = decoder(ctx)
             if err ~= nil then
                 return nil, err
             end
             --
 
-            t[k] = v
+            tbl[key] = val
         end
-        return t
+
+        return tbl
     end
     Decoder.decode_table = decode_table
 
-    function decode_string(ctx, n)
+    function decode_string(ctx, len)
         local index = ctx[1]
-        if index + n - 1 > ctx[3] then
+        if index + len - 1 > ctx[3] then
             return nil, "Attemped to read beyond buffer size"
-        elseif index + n - 1 > ctx[4] then
+        elseif index + len - 1 > ctx[4] then
             return nil, "Max decode size exceeded"
         end
-        ctx[1] = index + n
-        return sub(ctx[2], index, index + n - 1)
+
+        ctx[1] = index + len
+
+        return sub(ctx[2], index, index + len - 1)
     end
     Decoder.decode_string = decode_string
 
@@ -1061,17 +1088,17 @@ do
     Decoder.decode_double = decode_double
 
     function read_type(ctx)
-        local t = str_byte(ctx[2], ctx[1])
-        return t
+        local typ = str_byte(ctx[2], ctx[1])
+        return typ
     end
     Decoder.read_type = read_type
 
     function read_byte(ctx)
-        local b, err = byte(ctx, 1)
-        if b == nil then
+        local bty, err = byte(ctx, 1)
+        if bty == nil then
             return nil, err
         end
-        return b
+        return bty
     end
     Decoder.read_byte = read_byte
 
@@ -1109,8 +1136,8 @@ return {
         type = t_fn
     end,
 
-    add_encoder = function(t, encoder)
-        encoders[t] = encoder
+    add_encoder = function(typ, encoder)
+        encoders[typ] = encoder
         if FREE_FOR_CUSTOM == FREE_FOR_CUSTOM_END then
             return nil, "No more free slots for custom encoders"
         end
@@ -1118,11 +1145,9 @@ return {
         return FREE_FOR_CUSTOM - 1
     end,
 
-    add_decoder = function(t, decoder)
-        decoders[t] = decoder
+    add_decoder = function(typ, decoder)
+        decoders[typ] = decoder
     end,
 
-    chars = chars
+    chars = chars,
 }
-
-
