@@ -19,6 +19,13 @@ local HUGE = math.huge
 local floor = math.floor
 local type = type
 
+-- string.char is not jit compiled in luajit 2.0.5
+local chars = {}; do
+    for i = 0, 255 do
+        chars[i] = string.char(i)
+    end
+end
+
 local MAX_NUMBER = 1.7976931348623e+308
 local MIN_NUMBER = -MAX_NUMBER
 
@@ -88,13 +95,6 @@ do
     local log = math.log
     local concat = table.concat
     local write, write_unsigned, write_double
-
-    -- string.char is not jit compiled in luajit 2.0.5
-    local chars = {}; do
-        for i = 0, 255 do
-            chars[i] = string.char(i)
-        end
-    end
 
     -- garry's mod related
     local Vector_Unpack, Angle_Unpack
