@@ -101,6 +101,18 @@ do
     local concat = table.concat
     local write, write_unsigned, write_double
 
+    -- garry's mod related
+    local Vector_Unpack, Angle_Unpack
+    local Entity_EntIndex, Player_UserID
+    if FindMetaTable then
+        Vector_Unpack = FindMetaTable("Vector").Unpack
+        Angle_Unpack = FindMetaTable("Angle").Unpack
+
+        Entity_EntIndex = FindMetaTable("Entity").EntIndex
+        Player_UserID = FindMetaTable("Player").UserID
+    end
+    --
+
     local get_encoder = function(buf, t)
         local encoder = encoders[type(t)]
         if encoder == nil then
@@ -124,7 +136,7 @@ do
             return nil, concat(buffer, nil, buffer[0] - 1, buffer[0])
         end
 
-        if encoder(buffer, v) == true then
+        if encoder(buffer, v) == true then -- if it returns true, it means there was an error
             -- error is never compiled, so we never error to avoid that
             -- concating in luajit 2.0.5 is NYI, we make sure that all encoders' functions get jit compiled
             return nil, concat(buffer, nil, buffer[0] - 1, buffer[0])
@@ -142,7 +154,17 @@ do
 
     function Encoder.encode_with_buffer(v, buf, max_size)
         buf[0] = 0
-        encoders[type(v)](buf, v)
+
+        local encoder = get_encoder(buf, v)
+        if encoder == nil then
+            return nil, concat(buf, nil, buf[0] - 1, buf[0])
+        end
+
+        if encoder(buf, v) == true then -- if it returns true, it means there was an error
+            -- error is never compiled, so we never error to avoid that
+            -- concating in luajit 2.0.5 is NYI, we make sure that all encoders' functions get jit compiled
+            return nil, concat(buf, nil, buf[0] - 1, buf[0])
+        end
 
         local result = concat(buf, nil, 1, buf[0])
         if #buf > max_size then
@@ -154,10 +176,18 @@ do
         return result
     end
 
-    function Encoder.encode_array(a)
+    function Encoder.encode_array(a, n)
+        if type(a) ~= "table" then
+            return nil, "Array is not a table: ", a
+        end
+
+        if type(n) ~= "number" then
+            return nil, "Array size is not a number: ", n
+        end
+
         buffer[0] = 0
 
-        if encoders.array(buffer, a, #a)  == true then
+        if encoders.array(buffer, a, n)  == true then -- if it returns true, it means there was an error
             return nil, concat(buffer, nil, buffer[0] - 1, buffer[0])
         end
 
@@ -215,9 +245,14 @@ do
         end
     end
 
+    -- we can't check if a table is an array or not because lua tables are not arrays, they are tables
+    -- use Encoder.encode_array if you want to encode an array
     function encoders.table(buf, t)
         local buf_len = buf[0]
-        local table_start = buf_len
+        local table_start = buf_len -- we store the start of the table so when we write the table size, we can change the current buffer index to the start of the table
+        -- we have no way to get the table size without iterating through it, so we just add 5 empty strings to the buffer as a placeholder
+        -- we add 5 empty strings because we don't know if table size is going to be a fixed number, uint8, uint16 or uint32
+        -- uint32 takes 5 bytes, so we add 5 empty strings
         do
             for i = 1, 5 do
                 buf[buf_len + i] = ""
@@ -239,8 +274,10 @@ do
             encoder_v(buf, v)
         end
 
-        local table_end = buf[0]
-        buf[0] = table_start
+        local table_end = buf[0] -- we store the end of the table because we need to change current buffer index to the start of the table to write the table size
+        buf[0] = table_start -- change current buffer index to the start of the table
+
+        -- write the table size
         if table_count <= 0xF then
             write(buf, char(TABLE_FIXED + table_count))
         else
@@ -251,7 +288,7 @@ do
             end
             write_unsigned(buf, TABLE_8, table_count)
         end
-        buf[0] = table_end
+        buf[0] = table_end -- change current buffer index back to the end of the table
     end
 
     function encoders.string(buf, str)
@@ -295,7 +332,7 @@ do
 
     function encoders.Vector(buf, v)
         write(buf, char(VECTOR))
-        local x, y, z = v:Unpack()
+        local x, y, z = Vector_Unpack(v)
         encoders.number(buf, x)
         encoders.number(buf, y)
         encoders.number(buf, z)
@@ -303,7 +340,7 @@ do
 
     function encoders.Angle(buf, a)
         write(buf, char(ANGLE))
-        local p, y, r = a:Unpack()
+        local p, y, r = Angle_Unpack(a)
         encoders.number(buf, p)
         encoders.number(buf, y)
         encoders.number(buf, r)
@@ -311,12 +348,12 @@ do
 
     function encoders.Entity(buf, e)
         write(buf, char(ENTITY))
-        encoders.number(buf, e:EntIndex())
+        encoders.number(buf, Entity_EntIndex(e))
     end
 
     function encoders.Player(buf, p)
         write(buf, char(PLAYER))
-        encoders.number(buf, p:UserID())
+        encoders.number(buf, Player_UserID(p))
     end
 
     function encoders.Color(buf, c)
@@ -413,7 +450,10 @@ local Decoder = {
 }
 do
     local sub = string.sub
+
+    -- garry's mod related
     local Vector, Angle, Entity, Player, Color = Vector, Angle, Entity, Player, Color
+    --
 
     local read_type, read_byte, read_word, read_dword
     local decode_array, decode_table, decode_string, decode_double
@@ -1082,6 +1122,7 @@ return {
 
     encode = Encoder.encode,
     encode_with_buffer = Encoder.encode_with_buffer,
+    encode_array = Encoder.encode_array,
 
     decode = Decoder.decode,
     decode_with_max_size = Decoder.decode_with_max_size,
