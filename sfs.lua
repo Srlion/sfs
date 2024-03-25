@@ -91,6 +91,7 @@ local Encoder = {
 }
 do
     local pairs = pairs
+    local next = next
     local ceil = math.ceil
     local log = math.log
     local concat = table.concat
@@ -217,6 +218,15 @@ do
     -- we can't check if a table is an array or not because lua tables are not arrays, they are tables
     -- use Encoder.encode_array if you want to encode an array
     function encoders.table(buf, t)
+        -- check if it's an array, it's not accurate for arrays with holes but better than nothing
+        do
+            -- this is the fastest possible way, a lot better than cbor's/messagepack's/pon's way of checking if it's an array
+            local tbl_len = #t
+            if next(t, tbl_len) == nil then
+                return encoders.array(buf, t, tbl_len)
+            end
+        end
+
         local buf_len = buf[0]
         local table_start = buf_len -- we store the start of the table so when we write the table size, we can change the current buffer index to the start of the table
         -- we have no way to get the table size without iterating through it, so we just add 5 empty strings to the buffer as a placeholder
