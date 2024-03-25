@@ -283,18 +283,23 @@ do
             return true
         end
 
-        local FIXED_TAG, TAG = POSITIVE_INT, UINT_8
+        if n % 1 ~= 0 or n > 0xFFFFFFFFFFFFF or n < -0xFFFFFFFFFFFFF then -- DOUBLE
+            write_double(buf, DOUBLE, n)
+            return
+        end
+
         if n < 0 then
             n = -n
-            FIXED_TAG, TAG = NEGATIVE_INT, NINT_8
-        end
-        if n % 1 ~= 0 or n > 0xFFFFFFFFFFFFF then -- DOUBLE
-            write_double(buf, DOUBLE, n)
+            if n <= 0x1F then
+                write(buf, chars[NEGATIVE_INT + n])
+            else
+                write_unsigned(buf, NINT_8, n)
+            end
         else
             if n <= 0x7F then
-                write(buf, chars[FIXED_TAG + n])
+                write(buf, chars[POSITIVE_INT + n])
             else
-                write_unsigned(buf, TAG, n)
+                write_unsigned(buf, UINT_8, n)
             end
         end
     end
@@ -716,6 +721,7 @@ do
         if n8 == nil then
             return nil, err
         end
+        print(false, n8)
         return -n8
     end
 
@@ -743,7 +749,7 @@ do
         if b1 == nil then
             return nil, b2
         end
-        return -(b1 * 0x1000000000000 + b2 * 0x10000000000 + b3 * 0x100000000 + b4 * 0x1000000 + b5 * 0x10000 + b6 * 0x100 + b7)
+        return -(b1 + (b2 * 0x100) + (b3 * 0x10000) + (b4 * 0x1000000) + (b5 * 0x100000000) + (b6 * 0x10000000000) + (b7 * 0x1000000000000))
     end
 
     decoders[DOUBLE] = function(ctx)
@@ -1109,3 +1115,4 @@ return {
 
     chars = chars
 }
+
