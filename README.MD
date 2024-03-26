@@ -74,7 +74,8 @@ This module does not throw errors. Instead, functions return an error string and
 Internal Functions
 The Encoder and Decoder tables are also exported for advanced usage. These tables contain the internal functions used for encoding and decoding data.
 
-Arrays are encoded as tables by default, as there is no real way to differentiate between a table and an array in Lua. If you want to encode a table as an array, you can use the `sfs.Encoder.array` function.
+~~Arrays are encoded as tables by default, as there is no real way to differentiate between a table and an array in Lua. If you want to encode a table as an array, you can use the `sfs.Encoder.array` function.~~ This is no longer the case. I made `sfs.encode_array` to encode arrays, but I realized sub-values can also be arrays. So, this function can only be useful if all values are anything but arrays. Therefore, I had to figure out a fast and accurate way to check if a table is an array or not. I wanted something that could work with array holes, but that's not possible without iterating and making the code more complex and 2x slower. So, I found a hacky way: LuaJIT and Lua 5.1 both iterate over the array part first, then the hash part. We can have a blazing fast check to see if a table is an array or not. The trick is to get the table size `local len = #tbl`, then call `next(tbl, #tbl)`. If it returns nil, then it's an array. This check is really accurate, simple, and fast. However, there was a problem because LuaJIT supports zero-based index arrays, so a new prefix byte was added to indicate if a table starts from 0 or 1. The prefix byte won't be added if the table is an array starting from 1.
+This method is a lot better than what other serializers do, as they loop over the array and then if there is a hash value, they loop again as they have to encode keys, which can significantly impact performance for large tables.
 
 ## Benchmarks
 
@@ -93,6 +94,8 @@ Running it 100,000 times:
 | pon     | 2.392090866     |
 
 Around 40% faster than cbor and 94% faster than pon. Encode output will be almost the same size as cbor but way smaller than pon.
+
+- After some testing, pon can be smaller than sfs (not by a significant margin) when all the data is composed of strings (not in all cases). This is because pon always uses two bytes and does not include the string length, making it potentially smaller in certain string-based scenarios. However, it is important to note that the performance difference between the two is substantial, and when dealing with mixed data types, sfs will generally result in a much smaller output size.
 
 | Library | Encode Output Size |
 | ------- | ------------------ |
