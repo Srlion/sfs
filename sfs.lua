@@ -115,11 +115,18 @@ do
     end
     --
 
+    local function GetType(t)
+        if IsColor(t) then
+            return "Color"
+        end
+        return type(t)
+    end
+    
     local get_encoder = function(buf, t)
-        local encoder = encoders[type(t)]
+        local encoder = encoders[GetType(t)]
         if encoder == nil then
             write(buf, "Unsupported type: ")
-            write(buf, type(t))
+            write(buf, GetType(t))
             return nil
         end
         return encoder
