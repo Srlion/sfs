@@ -18,6 +18,7 @@ local math = math
 local HUGE = math.huge
 local floor = math.floor
 local internal_type = type
+local IsColor = IsColor
 local type = function(v)
     if IsColor(v) then
         return "Color"
