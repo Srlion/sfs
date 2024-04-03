@@ -17,7 +17,13 @@
 local math = math
 local HUGE = math.huge
 local floor = math.floor
-local type = type
+local internal_type = type
+local type = function(v)
+    if IsColor(v) then
+        return "Color"
+    end
+    return internal_type(v)
+end
 
 -- string.char is not jit compiled in luajit 2.0.5
 local chars = {}; do
@@ -115,18 +121,11 @@ do
     end
     --
 
-    local function GetType(t)
-        if IsColor(t) then
-            return "Color"
-        end
-        return type(t)
-    end
-    
     local get_encoder = function(buf, t)
-        local encoder = encoders[GetType(t)]
+        local encoder = encoders[type(t)]
         if encoder == nil then
             write(buf, "Unsupported type: ")
-            write(buf, GetType(t))
+            write(buf, type(t))
             return nil
         end
         return encoder
