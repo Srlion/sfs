@@ -17,7 +17,14 @@
 local math = math
 local HUGE = math.huge
 local floor = math.floor
-local type = type
+local internal_type = type
+local IsColor = IsColor
+local type = function(v)
+    if IsColor(v) then
+        return "Color"
+    end
+    return internal_type(v)
+end
 
 -- string.char is not jit compiled in luajit 2.0.5
 local chars = {}; do
