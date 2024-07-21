@@ -241,7 +241,7 @@ do
         do
             -- this is the fastest possible way, a lot better than cbor's/messagepack's/pon's way of checking if it's an array
             local tbl_len = #tbl
-            if tbl_len > 0 and next(tbl, tbl_len) == nil then
+            if (tbl_len > 0 and next(tbl, tbl_len) == nil) and next(tbl, tbl_len -1) == tbl_len then
                 if tbl[0] ~= nil then
                     return encoders.array(buf, tbl, tbl_len, 0)
                 else
