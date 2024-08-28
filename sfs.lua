@@ -519,6 +519,10 @@ do
     end
 
     function Decoder.decode(str)
+        if type(str) ~= "string" then
+            return nil, "str is not a string", str
+        end
+
         context[1] = 1
         context[2] = str
         context[3] = #str
@@ -528,6 +532,10 @@ do
     end
 
     function Decoder.decode_with_max_size(str, max_size)
+        if type(str) ~= "string" then
+            return nil, "str is not a string", str
+        end
+
         if type(max_size) ~= "number" then
             return nil, "max_size is not a number", max_size
         end
@@ -1157,5 +1165,5 @@ return {
     end,
 
     chars = chars,
-    VERSION = "2.0.5"
+    VERSION = "2.0.6"
 }
