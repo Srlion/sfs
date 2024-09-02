@@ -1165,5 +1165,5 @@ return {
     end,
 
     chars = chars,
-    VERSION = "2.0.6"
+    VERSION = "new_version"
 }
