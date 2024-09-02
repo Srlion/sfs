@@ -23,7 +23,7 @@ jobs:
 
       - name: Update version file
         if: steps.tag.outputs.new_tag != ''
-        run: sed -i 's/VERSION = "[^"]*"/VERSION = "new_version"/' sfs.lua
+        run: sed -i 's/VERSION = "[^"]*"/VERSION = "${{ steps.tag.outputs.new_tag }}"/' sfs.lua
 
       - name: Commit version file
         if: steps.tag.outputs.new_tag != ''
