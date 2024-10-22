@@ -1062,7 +1062,7 @@ do
     function decode_string(ctx, len)
         local index = ctx[1]
         if index + len - 1 > ctx[3] then
-            return nil, "Attemped to read beyond buffer size"
+            return nil, "Attempted to read beyond buffer size"
         elseif index + len - 1 > ctx[4] then
             return nil, "Max decode size exceeded"
         end
