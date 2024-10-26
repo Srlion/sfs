@@ -10,14 +10,14 @@ It's made for Garry's Mod in mind, designed to be blazing fast for addons that t
 
 I made it because I was done using pon outputting huge output and messagepack causing issues. Also they don't have anyway to limit the size when decoding.
 
-Each type is encoded with a prefix byte to identify type, except for small integers, which are encoded directly. This allows for efficient encoding and decoding of data, You can read sfs.lua to understand how it works.
+Each type is encoded with a prefix byte to identify type, except for small numbers/strings/arrays/tables, which are encoded directly. This allows for efficient encoding and decoding of data, You can read sfs.lua to understand how it works.
 
 Highly inspired by MessagePack.
 
 ## Usage
 
 ```lua
-local sfs = include('sfs.lua')
+local sfs = include("sfs.lua")
 
 -- To encode data
 local encoded, err = sfs.encode(data)
@@ -27,57 +27,129 @@ if err then
 end
 
 -- To decode data
-local decoded, err, err2 = sfs.decode(encoded) -- err2 can be nil
+local decoded, err = sfs.decode(encoded)
 if err then
-    print("Error decoding data: ", err, err2)
+    print("Error decoding data: ", err)
     return
 end
 
 print(decoded)
 ```
 
-```lua
-local sfs = include('sfs.lua')
+You can also add custom types!
 
--- To encode an array
-local encoded, err = sfs.encode_array({false, true, nil, 1, 2, 3}, 6)
+```lua
+local Encoder = sfs.Encoder
+local Decoder = sfs.Decoder
+
+local SortedMap; do
+    local SortedMapMethods = {}
+    local SortedMapMeta = {
+        __index = SortedMapMethods,
+        __tostring = function(s)
+            return string.format("SortedMap: %p", s)
+        end,
+        MetaName = "SortedMap"
+    }
+
+    SortedMap = {
+        Meta = SortedMapMeta,
+    }
+
+    function SortedMap.New()
+        return setmetatable({
+            map = {},
+            keys = {},
+            size = 0
+        }, SortedMapMeta)
+    end
+
+    function SortedMapMethods:Hey()
+        PrintTable(self)
+    end
+end
+
+sfs.set_type_function(function(v)
+    if getmetatable(v) == SortedMap.Meta then
+        return "SortedMap"
+    end
+    return _G.type(v)
+end)
+
+local SORTED_MAP_ID
+SORTED_MAP_ID = sfs.add_custom_type("SortedMap", function(buf, v)
+    Encoder.write_byte(buf, SORTED_MAP_ID)
+
+    Encoder.write_u16(buf, v.size)
+
+    if Encoder.write_table(buf, v.map) then -- if it returns true, there was an error
+        return true
+    end
+
+    if Encoder.write_array(buf, v.keys, v.size) then -- if it returns true, there was an error
+        return true
+    end
+end, function(ctx)
+    ctx[1] = ctx[1] + 1 -- Skip the type byte (SORTED_MAP_ID)
+
+    local size, map, keys, err
+
+    size, err = Decoder.read_u16(ctx)
+    if err then return nil, err end
+
+    map, err = Decoder.read_table(ctx, size)
+    if err then return nil, err end
+
+    keys, err = Decoder.read_array(ctx, size)
+    if err then return nil, err end
+
+    return setmetatable({
+        map = map,
+        keys = keys,
+        size = size
+    }, SortedMap.Meta)
+end)
+
+local data = SortedMap.New()
+data.map["keys"] = "values"
+data.keys[1] = "key"
+data.size = 1
+
+local encoded, err = sfs.encode(data)
 if err then
     print("Error encoding data: ", err)
     return
 end
 
--- To decode data
-local decoded, err, err2 = sfs.decode(encoded) -- err2 can be nil
+local decoded, err = sfs.decode(encoded)
 if err then
-    print("Error decoding data: ", err, err2)
+    print("Error decoding data: ", err)
     return
 end
 
-print(decoded)
+PrintTable(decoded)
 ```
 
 ## Functions
 
 - `encode(data)` Encodes the given data into a string. Returns the encoded string, an error string, and a secondary error string. If the encoding is successful, the error strings will be nil.
 
-- `encode_array(array, array_size)` Does internally what encode does, but it's to encode arrays.
-
-- `decode(encoded_data)` Decodes the given string into the original data. Returns the decoded data, an error string, and a secondary error string. If the decoding is successful, the error strings will be nil.
-
-- `decode_with_max_size(encoded_data, max_size)` Similar to decode, but allows you to specify a maximum size for the decoded data. This can be useful for preventing denial-of-service attacks where an attacker sends a very large encoded string.
+- `decode(encoded_data, max_size?)` Decodes the given string into the original data. Returns the decoded data, an error string, and a secondary error string. If the decoding is successful, the error strings will be nil. max_size is an optional parameter that allows you to specify a maximum size for the decoded data. This can be useful for preventing denial-of-service attacks where an attacker sends a very large encoded string.
 
 - `set_type_function(t_fn)` Sets a custom type function. This can be useful if you have custom type function that you want the library to use instead of global `type` function.
 
+- `add_custom_type(type_name, encode_fn, decode_fn)` Adds a custom type to the library. This can be useful if you have custom types that you want to encode and decode. Returns the type ID that was assigned to the custom type.
+
 Note
-This module does not throw errors. Instead, functions return an error string and a secondary error string as the second and third return values when something goes wrong. Always check these return values to make sure your calls to encode and decode were successful.
+This module does not throw errors. Instead, functions return an error string when something goes wrong. Always check these return values to make sure your calls to encode and decode were successful.
 
 Internal Functions
 The Encoder and Decoder tables are also exported for advanced usage. These tables contain the internal functions used for encoding and decoding data.
 
-~~Arrays are encoded as tables by default, as there is no real way to differentiate between a table and an array in Lua. If you want to encode a table as an array, you can use the `sfs.Encoder.array` function.~~ This is no longer the case. I made `sfs.encode_array` to encode arrays, but I realized sub-values can also be arrays. So, this function can only be useful if all values are anything but arrays. Therefore, I had to figure out a fast and accurate way to check if a table is an array or not. I wanted something that could work with array holes, but that's not possible without iterating and making the code more complex and 2x slower. So, I found a hacky way: LuaJIT and Lua 5.1 both iterate over the array part first, then the hash part. We can have a blazing fast check to see if a table is an array or not. The trick is to get the table size `local len = #tbl`, then call `next(tbl, #tbl)`. If it returns nil, then it's an array. This check is really accurate, simple, and fast. However, there was a problem because LuaJIT supports zero-based index arrays, so a new prefix byte was added to indicate if a table starts from 0 or 1. The prefix byte won't be added if the table is an array starting from 1.
-This method is a lot better than what other serializers do, as they loop over the array and then if there is a hash value, they loop again as they have to encode keys, which can significantly impact performance for large tables.
-
 ## Benchmarks
+
+> [!NOTE]
+> These benchmarks are not updated with new changes. I will update them soon™. (New changes shouldn't affect the performance that much)
 
 This benchmark is not highly accurate, but it gives a rough idea of how fast the library is.
 
