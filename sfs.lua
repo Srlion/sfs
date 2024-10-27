@@ -824,7 +824,7 @@ do
     end
     Decoder.read_table = read_table
 
-    function Decoder.decode(bytes, max_size)
+    function Decoder.setup_context(bytes, max_size)
         if type(bytes) ~= "string" then
             return nil, "bytes must be a string"
         end
@@ -844,6 +844,17 @@ do
 
         if context[3] < 1 then
             return nil, "no bytes to decode"
+        end
+
+        return context
+    end
+
+    function Decoder.decode(bytes, max_size)
+        do
+            local _, err = Decoder.setup_context(bytes, max_size)
+            if err then
+                return nil, err
+            end
         end
 
         local val, err = read_value(context)
