@@ -379,6 +379,10 @@ do
     end
     Encoder.write_table = write_table
 
+    function Encoder.read_error(buf)
+        return table_concat(buf, nil, buf[0] - 1, buf[0])
+    end
+
     do
         local buffer = {
             [0] = 0 -- length
@@ -392,7 +396,7 @@ do
             -- error is never compiled, so we never error to avoid that
             -- concatenating in luajit 2.0.5 is NYI, we make sure that all encoders' functions get jit compiled
             if write_value(buffer, val) then
-                return nil, table_concat(buffer, nil, buffer[0] - 1, buffer[0])
+                return nil, Encoder.read_error(buffer)
             end
 
             local result = table_concat(buffer, nil, 1, buffer[0])
