@@ -544,10 +544,10 @@ do
         write_u16(buf, Entity_EntIndex(ent))
     end
 
-    local Player_UserID = FindMetaTable and FindMetaTable("Player").UserID
+    -- range between 1 and 128 for players, so we can safely use uint8
     encoders.Player = function(buf, ply)
         write_byte(buf, PLAYER)
-        write_u8(buf, Player_UserID(ply))
+        write_u8(buf, Entity_EntIndex(ply))
     end
 
     local Vector_Unpack = FindMetaTable and FindMetaTable("Vector").Unpack
@@ -1326,5 +1326,5 @@ return {
     end,
 
     chars = chars,
-    VERSION = "3.0.1"
+    VERSION = "3.0.2"
 }
