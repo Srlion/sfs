@@ -544,6 +544,12 @@ do
         write_u16(buf, Entity_EntIndex(ent))
     end
 
+    -- All of these are reported as their own type but are otherwise identical in handling to entities
+    encoders.Weapon = encoders.Entity
+    encoders.Vehicle = encoders.Entity
+    encoders.NextBot = encoders.Entity
+    encoders.NPC = encoders.Entity
+
     -- range between 1 and 128 for players, so we can safely use uint8
     encoders.Player = function(buf, ply)
         write_byte(buf, PLAYER)
