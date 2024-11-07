@@ -905,14 +905,13 @@ do
         return Entity(ent_idx)
     end
 
-    local Player = Player
     decoders[PLAYER] = function(ctx)
         ctx[1] = ctx[1] + 1
         local ply_uid, err = read_u8(ctx)
         if err then
             return nil, err
         end
-        return Player(ply_uid)
+        return Entity(ply_uid)
     end
 
     local Vector = Vector
