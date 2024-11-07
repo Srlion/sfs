@@ -592,10 +592,10 @@ do
     encoders.Color = function(buf, col)
         write_byte(buf, COLOR)
 
-        write_u8(buf, col.r)
-        write_u8(buf, col.g)
-        write_u8(buf, col.b)
-        write_u8(buf, col.a)
+        write_u8(buf, math_floor(col.r))
+        write_u8(buf, math_floor(col.g))
+        write_u8(buf, math_floor(col.b))
+        write_u8(buf, math_floor(col.a))
     end
 end
 
