@@ -766,7 +766,7 @@ do
             arr[size] = val
         end
         ctx[1] = ctx[1] + 1 -- skip the ending type
-        return arr
+        return arr, nil, size
     end
     Decoder.read_array = read_array
 
