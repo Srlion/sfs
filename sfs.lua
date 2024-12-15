@@ -765,6 +765,7 @@ do
             size = size + 1
             arr[size] = val
         end
+        ctx[1] = ctx[1] + 1 -- skip the ending type
         return arr
     end
     Decoder.read_array = read_array
@@ -783,6 +784,7 @@ do
             end
             tbl[key] = val
         end
+        ctx[1] = ctx[1] + 1 -- skip the ending type
         return tbl
     end
     Decoder.read_table = read_table
