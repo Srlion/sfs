@@ -114,32 +114,28 @@ end
 --
 
 --
-local POSITIVE_FIXED_START, POSITIVE_FIXED_MAX = new_type("positive_fixed", 82)
+local POSITIVE_FIXED_START, POSITIVE_FIXED_MAX = new_type("positive_fixed", 102)
 local POSITIVE_U8 = new_type("positive_u8")
 local POSITIVE_U16 = new_type("positive_u16")
 local POSITIVE_U32 = new_type("positive_u32")
 local POSITIVE_U53 = new_type("positive_u53")
 
-local NEGATIVE_FIXED_START, NEGATIVE_FIXED_MAX = new_type("negative_fixed", 32)
+local NEGATIVE_FIXED_START, NEGATIVE_FIXED_MAX = new_type("negative_fixed", 55)
 local NEGATIVE_U8 = new_type("negative_u8")
 local NEGATIVE_U16 = new_type("negative_u16")
 local NEGATIVE_U32 = new_type("negative_u32")
 local NEGATIVE_U53 = new_type("negative_u53")
 
-local STRING_FIXED_START, STRING_FIXED_MAX = new_type("string_fixed", 32)
+local STRING_FIXED_START, STRING_FIXED_MAX = new_type("string_fixed", 56)
 local STRING_U8 = new_type("string_u8")
 local STRING_U16 = new_type("string_u16")
 local STRING_U32 = new_type("string_u32")
 
-local ARRAY_FIXED_START, ARRAY_FIXED_MAX = new_type("array_fixed", 32)
-local ARRAY_U8 = new_type("array_u8")
-local ARRAY_U16 = new_type("array_u16")
-local ARRAY_U32 = new_type("array_u32")
+local ARRAY = new_type("array")
 
-local TABLE_FIXED_START, TABLE_FIXED_MAX = new_type("table_fixed", 32)
-local TABLE_U8 = new_type("table_u8")
-local TABLE_U16 = new_type("table_u16")
-local TABLE_U32 = new_type("table_u32")
+local TABLE = new_type("table")
+
+local ENDING = new_type("ending") -- type used to end arrays and tables, can be used for custom types as well
 --
 
 -- For user defined types
@@ -148,7 +144,8 @@ local CUSTOM_START, CUSTOM_MAX = new_type("custom", 14)
 
 local encoders = {}
 local Encoder = {
-    encoders = encoders
+    encoders = encoders,
+    ENDING = ENDING
 }
 do
     local function write_str(buf, str)
@@ -457,60 +454,18 @@ do
         else
             size = #arr
         end
-
-        if size <= ARRAY_FIXED_MAX then
-            write_byte(buf, ARRAY_FIXED_START + size)
-        else
-            write_varint(buf, ARRAY_U8, size)
-        end
-
+        write_byte(buf, ARRAY)
         write_array(buf, arr, size)
+        write_byte(buf, ENDING)
     end
 
     encoders.table = function(buf, tbl)
         if is_array(tbl) then
             return encoders.array(buf, tbl)
         end
-
-        local buf_len = buf[0]
-        -- we store the start of the table so when we write the table size, we can change the current buffer index to the start of the table
-        -- we have no way to get the table size without iterating through it, so we just add 5 empty strings to the buffer as a placeholder
-        -- we add 5 empty strings because we don't know if table size is going to be a fixed number, uint8, uint16 or uint32
-        -- uint32 takes 5 bytes, so we add 5 empty strings
-        local table_start = buf_len
-        do
-            buf[buf_len + 1] = ""
-            buf[buf_len + 2] = ""
-            buf[buf_len + 3] = ""
-            buf[buf_len + 4] = ""
-            buf[buf_len + 5] = ""
-
-            buf_len = buf_len + 5
-            buf[0] = buf_len
-        end
-
-        local table_len = 0
-        for key, val in pairs(tbl) do
-            table_len = table_len + 1
-            if write_value(buf, key) or write_value(buf, val) then
-                return true
-            end
-        end
-
-        -- we store the end of the table because we need to change current buffer index to the start of the table to write the table size
-        local table_end = buf[0]
-        -- change current buffer index to the start of the table
-        buf[0] = table_start
-
-        -- write the table size
-        if table_len <= TABLE_FIXED_MAX then
-            write_byte(buf, TABLE_FIXED_START + table_len)
-        else
-            write_varint(buf, TABLE_U8, table_len)
-        end
-
-        -- change current buffer index to the end of the table
-        buf[0] = table_end
+        write_byte(buf, TABLE)
+        write_table(buf, tbl)
+        write_byte(buf, ENDING)
     end
 
     encoders.number = function(buf, num)
@@ -799,35 +754,33 @@ do
     end
     Decoder.read_double = read_double
 
-    local function read_array(ctx, size)
-        -- it would be awesome if we get table.new
+    local function read_array(ctx, till)
         local arr = {nil, nil, nil, nil, nil, nil, nil, nil, nil, nil} -- initialize with size of 10
-        for i = 1, size do
+        local size = 0
+        while peak_type(ctx) ~= till do
             local val, err = read_value(ctx)
             if err then
                 return nil, err
             end
-            arr[i] = val
+            size = size + 1
+            arr[size] = val
         end
         return arr
     end
     Decoder.read_array = read_array
 
-    local function read_table(ctx, size)
+    local function read_table(ctx, till)
         local tbl = {nil, nil, nil, nil, nil, nil, nil, nil, nil, nil} -- initialize with size of 10
-        for i = 1, size do
+        while peak_type(ctx) ~= till do
             local key, val, err
-
             key, err = read_value(ctx)
             if err then
                 return nil, err
             end
-
             val, err = read_value(ctx)
             if err then
                 return nil, err
             end
-
             tbl[key] = val
         end
         return tbl
@@ -1108,92 +1061,19 @@ do
     --
 
     --
-    decoders[ARRAY_U8] = function(ctx)
+    decoders[ARRAY] = function(ctx)
         ctx[1] = ctx[1] + 1
-
-        local arr, arr_len, err
-
-        arr_len, err = read_u8(ctx)
+        local arr, err = read_array(ctx, ENDING)
         if err then return nil, err end
-
-        arr, err = read_array(ctx, arr_len)
-        if err then return nil, err end
-
         return arr
     end
 
-    decoders[ARRAY_U16] = function(ctx)
+    decoders[TABLE] = function(ctx)
         ctx[1] = ctx[1] + 1
-
-        local arr, arr_len, err
-
-        arr_len, err = read_u16(ctx)
+        local tbl, err = read_table(ctx, ENDING)
         if err then return nil, err end
-
-        arr, err = read_array(ctx, arr_len)
-        if err then return nil, err end
-
-        return arr
-    end
-
-    decoders[ARRAY_U32] = function(ctx)
-        ctx[1] = ctx[1] + 1
-
-        local arr, arr_len, err
-
-        arr_len, err = read_u32(ctx)
-        if err then return nil, err end
-
-        arr, err = read_array(ctx, arr_len)
-        if err then return nil, err end
-
-        return arr
-    end
-    --
-
-    --
-    decoders[TABLE_U8] = function(ctx)
-        ctx[1] = ctx[1] + 1
-
-        local tbl, tbl_len, err
-
-        tbl_len, err = read_u8(ctx)
-        if err then return nil, err end
-
-        tbl, err = read_table(ctx, tbl_len)
-        if err then return nil, err end
-
         return tbl
     end
-
-    decoders[TABLE_U16] = function(ctx)
-        ctx[1] = ctx[1] + 1
-
-        local tbl, tbl_len, err
-
-        tbl_len, err = read_u16(ctx)
-        if err then return nil, err end
-
-        tbl, err = read_table(ctx, tbl_len)
-        if err then return nil, err end
-
-        return tbl
-    end
-
-    decoders[TABLE_U32] = function(ctx)
-        ctx[1] = ctx[1] + 1
-
-        local tbl, tbl_len, err
-
-        tbl_len, err = read_u32(ctx)
-        if err then return nil, err end
-
-        tbl, err = read_table(ctx, tbl_len)
-        if err then return nil, err end
-
-        return tbl
-    end
-    --
 
     --
     decoders[STRING_FIXED_START] = function(ctx)
@@ -1214,47 +1094,6 @@ do
         decoders[STRING_FIXED_START + i] = decoders[STRING_FIXED_START]
     end
     --
-
-    --
-    decoders[ARRAY_FIXED_START] = function(ctx)
-        local byt, arr, err
-
-        byt, err = read_byte(ctx, 1)
-        if err then return nil, err end
-
-        local arr_len = byt - ARRAY_FIXED_START
-
-        arr, err = read_array(ctx, arr_len)
-        if err then return nil, err end
-
-        return arr
-    end
-
-    for i = 1, ARRAY_FIXED_MAX do
-        decoders[ARRAY_FIXED_START + i] = decoders[ARRAY_FIXED_START]
-    end
-    --
-
-    --
-    decoders[TABLE_FIXED_START] = function(ctx)
-        local byt, tbl, err
-
-        byt, err = read_byte(ctx, 1)
-        if err then return nil, err end
-
-        local tbl_len = byt - TABLE_FIXED_START
-
-        tbl, err = read_table(ctx, tbl_len)
-        if err then return nil, err end
-
-        return tbl
-    end
-
-    for i = 1, TABLE_FIXED_MAX do
-        decoders[TABLE_FIXED_START + i] = decoders[TABLE_FIXED_START]
-    end
-    --
-
     --
     decoders[POSITIVE_FIXED_START] = function(ctx)
         local byt, num, err
@@ -1341,5 +1180,5 @@ return {
     end,
 
     chars = chars,
-    VERSION = "3.0.6"
+    VERSION = "4.0.0"
 }

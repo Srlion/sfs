@@ -110,22 +110,6 @@ local function generate_test_table(total_range)
     return result
 end
 
-local function quick_array(size)
-    local result = {}
-    for i = 1, size do
-        table.insert(result, i)
-    end
-    return result
-end
-
-local function quick_table(size)
-    local result = {}
-    for i = 1, size do
-        result[i] = i
-    end
-    return result
-end
-
 -- local tested = sfs.encode(9007199254740991)
 -- print(sfs.decode(tested) == 9007199254740992)
 
@@ -807,36 +791,17 @@ return {
             end
         },
         {
-            name = name("array_fixed"),
-            func = function()
-                local buffer = sfs.new_buffer()
-                for i = 0, sfs.TYPES.array_fixed.max do
-                    local arr = quick_array(i)
-                    sfs.reset_buffer(buffer)
-                    Encoder.write_byte(buffer, sfs.TYPES.array_fixed.start + i)
-                    for k, v in ipairs(arr) do
-                        Encoder.write_value(buffer, v)
-                    end
-                    local encoded = sfs.end_buffer(buffer)
-                    local decoded = decode(encoded)
-                    expect(are_equal(arr, decoded)).to.beTrue()
-                end
-                expect(#sfs.encode(quick_array(sfs.TYPES.array_fixed.max))).to.equal(sfs.TYPES.array_fixed.max + 1)
-                expect(#sfs.encode(quick_array(sfs.TYPES.array_fixed.max + 1))).to.equal(sfs.TYPES.array_fixed.max + 3)
-            end
-        },
-        {
             name = name("array_u8"),
             func = function()
                 local to_test = generate_test_array(255)
                 local buffer = sfs.new_buffer()
                 for k, v in ipairs(to_test) do
                     sfs.reset_buffer(buffer)
-                    Encoder.write_byte(buffer, sfs.TYPES.array_u8.start)
-                    Encoder.write_u8(buffer, #v)
+                    Encoder.write_byte(buffer, sfs.TYPES.array.start)
                     for k2, v2 in ipairs(v) do
                         Encoder.write_value(buffer, v2)
                     end
+                    Encoder.write_byte(buffer, sfs.Encoder.ENDING)
                     local encoded = sfs.end_buffer(buffer)
                     local decoded = decode(encoded)
                     expect(are_equal(v, decoded)).to.beTrue()
@@ -850,11 +815,11 @@ return {
                 local buffer = sfs.new_buffer()
                 for k, v in ipairs(to_test) do
                     sfs.reset_buffer(buffer)
-                    Encoder.write_byte(buffer, sfs.TYPES.array_u16.start)
-                    Encoder.write_u16(buffer, #v)
+                    Encoder.write_byte(buffer, sfs.TYPES.array.start)
                     for k2, v2 in ipairs(v) do
                         Encoder.write_value(buffer, v2)
                     end
+                    Encoder.write_byte(buffer, sfs.Encoder.ENDING)
                     local encoded = sfs.end_buffer(buffer)
                     local decoded = decode(encoded)
                     expect(are_equal(v, decoded)).to.beTrue()
@@ -868,35 +833,15 @@ return {
                 local buffer = sfs.new_buffer()
                 for k, v in ipairs(to_test) do
                     sfs.reset_buffer(buffer)
-                    Encoder.write_byte(buffer, sfs.TYPES.array_u32.start)
-                    Encoder.write_u32(buffer, #v)
+                    Encoder.write_byte(buffer, sfs.TYPES.array.start)
                     for k2, v2 in ipairs(v) do
                         Encoder.write_value(buffer, v2)
                     end
+                    Encoder.write_byte(buffer, sfs.Encoder.ENDING)
                     local encoded = sfs.end_buffer(buffer)
                     local decoded = decode(encoded)
                     expect(are_equal(v, decoded)).to.beTrue()
                 end
-            end
-        },
-        {
-            name = name("table_fixed"),
-            func = function()
-                local buffer = sfs.new_buffer()
-                for i = 0, sfs.TYPES.table_fixed.max do
-                    local tbl = quick_table(i)
-                    sfs.reset_buffer(buffer)
-                    Encoder.write_byte(buffer, sfs.TYPES.table_fixed.start + i)
-                    for k, v in pairs(tbl) do
-                        Encoder.write_value(buffer, k)
-                        Encoder.write_value(buffer, v)
-                    end
-                    local encoded = sfs.end_buffer(buffer)
-                    local decoded = decode(encoded)
-                    expect(are_equal(tbl, decoded)).to.beTrue()
-                end
-                expect(#sfs.encode(quick_table(sfs.TYPES.table_fixed.max))).to.equal(sfs.TYPES.table_fixed.max + 1)
-                expect(#sfs.encode(quick_table(sfs.TYPES.table_fixed.max + 1))).to.equal(sfs.TYPES.table_fixed.max + 3)
             end
         },
         {
@@ -906,12 +851,12 @@ return {
                 local buffer = sfs.new_buffer()
                 for k, v in ipairs(to_test) do
                     sfs.reset_buffer(buffer)
-                    Encoder.write_byte(buffer, sfs.TYPES.table_u8.start)
-                    Encoder.write_u8(buffer, table.Count(v))
+                    Encoder.write_byte(buffer, sfs.TYPES.table.start)
                     for k2, v2 in pairs(v) do
                         Encoder.write_value(buffer, k2)
                         Encoder.write_value(buffer, v2)
                     end
+                    Encoder.write_byte(buffer, sfs.Encoder.ENDING)
                     local encoded = sfs.end_buffer(buffer)
                     local decoded = decode(encoded)
                     expect(are_equal(v, decoded)).to.beTrue()
@@ -925,12 +870,12 @@ return {
                 local buffer = sfs.new_buffer()
                 for k, v in ipairs(to_test) do
                     sfs.reset_buffer(buffer)
-                    Encoder.write_byte(buffer, sfs.TYPES.table_u16.start)
-                    Encoder.write_u16(buffer, table.Count(v))
+                    Encoder.write_byte(buffer, sfs.TYPES.table.start)
                     for k2, v2 in pairs(v) do
                         Encoder.write_value(buffer, k2)
                         Encoder.write_value(buffer, v2)
                     end
+                    Encoder.write_byte(buffer, sfs.Encoder.ENDING)
                     local encoded = sfs.end_buffer(buffer)
                     local decoded = decode(encoded)
                     expect(are_equal(v, decoded)).to.beTrue()
@@ -944,12 +889,12 @@ return {
                 local buffer = sfs.new_buffer()
                 for k, v in ipairs(to_test) do
                     sfs.reset_buffer(buffer)
-                    Encoder.write_byte(buffer, sfs.TYPES.table_u32.start)
-                    Encoder.write_u32(buffer, table.Count(v))
+                    Encoder.write_byte(buffer, sfs.TYPES.table.start)
                     for k2, v2 in pairs(v) do
                         Encoder.write_value(buffer, k2)
                         Encoder.write_value(buffer, v2)
                     end
+                    Encoder.write_byte(buffer, sfs.Encoder.ENDING)
                     local encoded = sfs.end_buffer(buffer)
                     local decoded = decode(encoded)
                     expect(are_equal(v, decoded)).to.beTrue()
