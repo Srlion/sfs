@@ -1330,6 +1330,16 @@ return {
         return CUSTOM_START - 1
     end,
 
+    set_custom_type_with_id = function(id, typ, encoder, decoder)
+        if encoders[typ] or decoders[typ] then
+            -- this just prints incase you mistakenly add a type that already exists
+            ErrorNoHaltWithStack("type already exists: `" .. typ .. "`")
+        end
+
+        encoders[typ] = encoder
+        decoders[id] = decoder
+    end,
+
     chars = chars,
     VERSION = "3.0.6"
 }
