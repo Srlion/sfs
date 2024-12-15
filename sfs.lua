@@ -544,6 +544,12 @@ do
         write_u16(buf, Entity_EntIndex(ent))
     end
 
+    -- All of these are reported as their own type but are otherwise identical in handling to entities
+    encoders.Weapon = encoders.Entity
+    encoders.Vehicle = encoders.Entity
+    encoders.NextBot = encoders.Entity
+    encoders.NPC = encoders.Entity
+
     -- range between 1 and 128 for players, so we can safely use uint8
     encoders.Player = function(buf, ply)
         write_byte(buf, PLAYER)
@@ -586,10 +592,10 @@ do
     encoders.Color = function(buf, col)
         write_byte(buf, COLOR)
 
-        write_u8(buf, col.r)
-        write_u8(buf, col.g)
-        write_u8(buf, col.b)
-        write_u8(buf, col.a)
+        write_u8(buf, math_floor(col.r))
+        write_u8(buf, math_floor(col.g))
+        write_u8(buf, math_floor(col.b))
+        write_u8(buf, math_floor(col.a))
     end
 end
 
@@ -905,14 +911,13 @@ do
         return Entity(ent_idx)
     end
 
-    local Player = Player
     decoders[PLAYER] = function(ctx)
         ctx[1] = ctx[1] + 1
         local ply_uid, err = read_u8(ctx)
         if err then
             return nil, err
         end
-        return Player(ply_uid)
+        return Entity(ply_uid)
     end
 
     local Vector = Vector
@@ -1326,5 +1331,5 @@ return {
     end,
 
     chars = chars,
-    VERSION = "3.0.2"
+    VERSION = "3.0.6"
 }
