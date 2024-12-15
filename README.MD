@@ -41,6 +41,7 @@ You can also add custom types!
 ```lua
 local Encoder = sfs.Encoder
 local Decoder = sfs.Decoder
+local ENDING = Encoder.ENDING
 
 local SortedMap; do
     local SortedMapMethods = {}
@@ -80,33 +81,30 @@ local SORTED_MAP_ID
 SORTED_MAP_ID = sfs.add_custom_type("SortedMap", function(buf, v)
     Encoder.write_byte(buf, SORTED_MAP_ID)
 
-    Encoder.write_u16(buf, v.size)
-
     if Encoder.write_table(buf, v.map) then -- if it returns true, there was an error
         return true
     end
+    Encoder.write_byte(buf, ENDING)
 
     if Encoder.write_array(buf, v.keys, v.size) then -- if it returns true, there was an error
         return true
     end
+    Encoder.write_byte(buf, ENDING)
 end, function(ctx)
     ctx[1] = ctx[1] + 1 -- Skip the type byte (SORTED_MAP_ID)
 
-    local size, map, keys, err
+    local map, keys, err
 
-    size, err = Decoder.read_u16(ctx)
+    map, err = Decoder.read_table(ctx, ENDING)
     if err then return nil, err end
 
-    map, err = Decoder.read_table(ctx, size)
-    if err then return nil, err end
-
-    keys, err = Decoder.read_array(ctx, size)
+    keys, err = Decoder.read_array(ctx, ENDING)
     if err then return nil, err end
 
     return setmetatable({
         map = map,
         keys = keys,
-        size = size
+        size = #keys
     }, SortedMap.Meta)
 end)
 
