@@ -1129,6 +1129,19 @@ do
     --
 end
 
+local function can_encode(val)
+    local t = type(val)
+    if t == "table" then
+        for k, v in pairs(val) do
+            if not can_encode(k) or not can_encode(v) then
+                return false
+            end
+        end
+        return true
+    end
+    return encoders[t] ~= nil
+end
+
 return {
     TYPES = TYPES,
 
@@ -1180,6 +1193,8 @@ return {
         encoders[typ] = encoder
         decoders[id] = decoder
     end,
+
+    can_encode = can_encode,
 
     chars = chars,
     VERSION = "4.0.0"
