@@ -469,7 +469,8 @@ do
     end
 
     encoders.number = function(buf, num)
-        if num % 1 ~= 0 then -- DOUBLE
+        -- a number like 1.7976931348623e308 will fail with % 1 ~= 0, but if you subtract 1 from it, it will still equal itself
+        if num % 1 ~= 0 or num - 1 == num then -- DOUBLE
             write_byte(buf, DOUBLE)
             write_double(buf, num)
             return
