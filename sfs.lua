@@ -1143,6 +1143,49 @@ local function can_encode(val)
     return encoders[t] ~= nil
 end
 
+local encode_to_hex, decode_from_hex; do
+    local byte = string.byte
+    local char = string.char
+    local string_format = string.format
+    local string_gsub = string.gsub
+    local tonumber = tonumber
+
+    local function hex(c)
+        local b = byte(c)
+        return (string_format("%02X", b))
+    end
+
+    local function string_to_hex(str)
+        return (string_gsub(str, ".", hex))
+    end
+
+    function encode_to_hex(val)
+        local encoded, err = Encoder.encode(val)
+        if err then
+            return nil, err
+        end
+        local hexed = string_to_hex(encoded)
+        return hexed
+    end
+
+    local function from_hex(c)
+        return char(tonumber(c, 16))
+    end
+
+    local function hex_to_string(str)
+        return (string_gsub(str, "..", from_hex))
+    end
+
+    function decode_from_hex(str)
+        local unhexed = hex_to_string(str)
+        local decoded, err = Decoder.decode(unhexed)
+        if err then
+            return nil, err
+        end
+        return decoded
+    end
+end
+
 return {
     TYPES = TYPES,
 
@@ -1151,6 +1194,9 @@ return {
 
     encode = Encoder.encode,
     decode = Decoder.decode,
+
+    encode_to_hex = encode_to_hex,
+    decode_from_hex = decode_from_hex,
 
     new_buffer = function()
         return {
