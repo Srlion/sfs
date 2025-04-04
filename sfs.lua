@@ -1177,7 +1177,10 @@ local encode_to_hex, decode_from_hex; do
     end
 
     function decode_from_hex(str)
-        local unhexed = hex_to_string(str)
+        local ok, unhexed = pcall(hex_to_string, str)
+        if not ok then
+            return nil, unhexed
+        end
         local decoded, err = Decoder.decode(unhexed)
         if err then
             return nil, err
