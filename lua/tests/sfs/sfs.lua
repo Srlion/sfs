@@ -73,7 +73,7 @@ end
 local function generate_test_array(total_range)
     local result = {}
     local length = 1
-    table.insert(result, {0})
+    table.insert(result, { 0 })
     while length < total_range do
         local increase = math.floor(length * 0.75)
         increase = math.max(1, increase)
@@ -93,7 +93,7 @@ end
 local function generate_test_table(total_range)
     local result = {}
     local length = 1
-    table.insert(result, {key1 = "value1"})
+    table.insert(result, { key1 = "value1" })
     while length < total_range do
         local increase = math.floor(length * 0.75)
         increase = math.max(1, increase)
@@ -161,13 +161,13 @@ return {
                     -0.0,
                     1.0,
                     -1.0,
-                    2.0^0,
-                    2.0^1,
-                    2.0^10,
-                    2.0^20,
-                    2.0^30,
-                    2.0^-10,
-                    2.0^-30,
+                    2.0 ^ 0,
+                    2.0 ^ 1,
+                    2.0 ^ 10,
+                    2.0 ^ 20,
+                    2.0 ^ 30,
+                    2.0 ^ -10,
+                    2.0 ^ -30,
                     16777216.0,
                     16777217.0,
                     2147483647.0,
@@ -221,8 +221,8 @@ return {
                     -4.9406564584124654e-324,
                     1.0e-323,
                     -1.0e-323,
-                    2.0^-1074,
-                    -2.0^-1074,
+                    2.0 ^ -1074,
+                    -2.0 ^ -1074,
                     math.huge,
                     -math.huge,
                     0 / 0,
@@ -320,28 +320,28 @@ return {
                     -1.143243,
                     1.23456789e123,
                     -1.23456789e-123,
-                    2.0^(-1074),
-                    2.0^(-1073),
-                    2.0^(-1022),
-                    2.0^(-1021),
-                    2.0^0,
-                    2.0^1,
-                    2.0^10,
-                    2.0^1023,
+                    2.0 ^ (-1074),
+                    2.0 ^ (-1073),
+                    2.0 ^ (-1022),
+                    2.0 ^ (-1021),
+                    2.0 ^ 0,
+                    2.0 ^ 1,
+                    2.0 ^ 10,
+                    2.0 ^ 1023,
                     0.5,
                     0.25,
                     0.125,
                     -0.5,
                     -0.25,
                     -0.125,
-                    1 - 2.0^(-52),
-                    1 + 2.0^(-52),
-                    1 - 2.0^(-53),
-                    1 + 2.0^(-53),
-                    2 - 2.0^(-51),
-                    2 + 2.0^(-51),
-                    4 - 2.0^(-50),
-                    4 + 2.0^(-50),
+                    1 - 2.0 ^ (-52),
+                    1 + 2.0 ^ (-52),
+                    1 - 2.0 ^ (-53),
+                    1 + 2.0 ^ (-53),
+                    2 - 2.0 ^ (-51),
+                    2 + 2.0 ^ (-51),
+                    4 - 2.0 ^ (-50),
+                    4 + 2.0 ^ (-50),
                     math.pi,
                     -math.pi,
                     math.pi * 2,
@@ -376,13 +376,13 @@ return {
                     -0.0,
                     1.0,
                     -1.0,
-                    2.0^0,
-                    2.0^1,
-                    2.0^10,
-                    2.0^20,
-                    2.0^30,
-                    2.0^-10,
-                    2.0^-30,
+                    2.0 ^ 0,
+                    2.0 ^ 1,
+                    2.0 ^ 10,
+                    2.0 ^ 20,
+                    2.0 ^ 30,
+                    2.0 ^ -10,
+                    2.0 ^ -30,
                     16777216.0,
                     16777217.0,
                     2147483647.0,
@@ -436,8 +436,8 @@ return {
                     -4.9406564584124654e-324,
                     1.0e-323,
                     -1.0e-323,
-                    2.0^-1074,
-                    -2.0^-1074,
+                    2.0 ^ -1074,
+                    -2.0 ^ -1074,
                     math.huge,
                     -math.huge,
                     0 / 0,
@@ -548,10 +548,10 @@ return {
             name = name("matrix"),
             func = function()
                 local matrix = Matrix({
-                    {-9, -6, 2, -10},
-                    {-3, -1, 2, -8},
-                    {5.6, -1, 0, 1.1},
-                    {-7, -7, 3, -8}
+                    { -9,  -6, 2, -10 },
+                    { -3,  -1, 2, -8 },
+                    { 5.6, -1, 0, 1.1 },
+                    { -7,  -7, 3, -8 }
                 })
                 local encoded = encode(matrix)
                 local decoded = decode(encoded)
@@ -741,7 +741,8 @@ return {
                     expect(decoded).to.equal(str)
                 end
                 expect(#sfs.encode(string.rep("a", sfs.TYPES.string_fixed.max))).to.equal(sfs.TYPES.string_fixed.max + 1)
-                expect(#sfs.encode(string.rep("a", sfs.TYPES.string_fixed.max + 1))).to.equal(sfs.TYPES.string_fixed.max + 3)
+                expect(#sfs.encode(string.rep("a", sfs.TYPES.string_fixed.max + 1))).to.equal(sfs.TYPES.string_fixed.max +
+                3)
             end
         },
         {

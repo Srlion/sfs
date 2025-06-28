@@ -91,59 +91,59 @@ local new_type; do
 end
 
 -- Simple types
-    local NIL = new_type("nil")
-    local FALSE = new_type("false")
-    local TRUE  = new_type("true")
+local NIL                                      = new_type("nil")
+local FALSE                                    = new_type("false")
+local TRUE                                     = new_type("true")
 
-    local FLOAT = new_type("float")
-    local DOUBLE = new_type("double")
+local FLOAT                                    = new_type("float")
+local DOUBLE                                   = new_type("double")
 
-    -- Garry's Mod types
-    local ENTITY = new_type("entity")
-    local PLAYER = new_type("player")
-    local VECTOR = new_type("vector")
-    local ANGLE = new_type("angle")
-    local MATRIX = new_type("matrix")
-    local COLOR = new_type("color")
+-- Garry's Mod types
+local ENTITY                                   = new_type("entity")
+local PLAYER                                   = new_type("player")
+local VECTOR                                   = new_type("vector")
+local ANGLE                                    = new_type("angle")
+local MATRIX                                   = new_type("matrix")
+local COLOR                                    = new_type("color")
 
-    -- reserved for future use to not break backwards compatibility incase we need to add more types
-    local _ = new_type("reserved_1")
-    local _ = new_type("reserved_2")
-    local _ = new_type("reserved_3")
-    local _ = new_type("reserved_4")
+-- reserved for future use to not break backwards compatibility incase we need to add more types
+local _                                        = new_type("reserved_1")
+local _                                        = new_type("reserved_2")
+local _                                        = new_type("reserved_3")
+local _                                        = new_type("reserved_4")
 --
 
 --
 local POSITIVE_FIXED_START, POSITIVE_FIXED_MAX = new_type("positive_fixed", 102)
-local POSITIVE_U8 = new_type("positive_u8")
-local POSITIVE_U16 = new_type("positive_u16")
-local POSITIVE_U32 = new_type("positive_u32")
-local POSITIVE_U53 = new_type("positive_u53")
+local POSITIVE_U8                              = new_type("positive_u8")
+local POSITIVE_U16                             = new_type("positive_u16")
+local POSITIVE_U32                             = new_type("positive_u32")
+local POSITIVE_U53                             = new_type("positive_u53")
 
 local NEGATIVE_FIXED_START, NEGATIVE_FIXED_MAX = new_type("negative_fixed", 55)
-local NEGATIVE_U8 = new_type("negative_u8")
-local NEGATIVE_U16 = new_type("negative_u16")
-local NEGATIVE_U32 = new_type("negative_u32")
-local NEGATIVE_U53 = new_type("negative_u53")
+local NEGATIVE_U8                              = new_type("negative_u8")
+local NEGATIVE_U16                             = new_type("negative_u16")
+local NEGATIVE_U32                             = new_type("negative_u32")
+local NEGATIVE_U53                             = new_type("negative_u53")
 
-local STRING_FIXED_START, STRING_FIXED_MAX = new_type("string_fixed", 56)
-local STRING_U8 = new_type("string_u8")
-local STRING_U16 = new_type("string_u16")
-local STRING_U32 = new_type("string_u32")
+local STRING_FIXED_START, STRING_FIXED_MAX     = new_type("string_fixed", 56)
+local STRING_U8                                = new_type("string_u8")
+local STRING_U16                               = new_type("string_u16")
+local STRING_U32                               = new_type("string_u32")
 
-local ARRAY = new_type("array")
+local ARRAY                                    = new_type("array")
 
-local TABLE = new_type("table")
+local TABLE                                    = new_type("table")
 
-local ENDING = new_type("ending") -- type used to end arrays and tables, can be used for custom types as well
+local ENDING                                   = new_type("ending") -- type used to end arrays and tables, can be used for custom types as well
 --
 
 -- For user defined types
-local CUSTOM_START, CUSTOM_MAX = new_type("custom", 14)
+local CUSTOM_START, CUSTOM_MAX                 = new_type("custom", 14)
 --
 
-local encoders = {}
-local Encoder = {
+local encoders                                 = {}
+local Encoder                                  = {
     encoders = encoders,
     ENDING = ENDING
 }
@@ -245,13 +245,13 @@ do
         local u32 = 0
 
         if num == 0 then
-            u32 = 0x00000000 -- Positive zero
+            u32 = 0x00000000     -- Positive zero
             if 1 / num < 0 then
                 u32 = 0x80000000 -- Negative zero
             end
             write_u32(buf, u32)
             return u32
-        elseif num ~= num then  -- NaN check
+        elseif num ~= num then -- NaN check
             u32 = 0x7FFFFFFF
             write_u32(buf, u32)
             return u32
@@ -262,7 +262,7 @@ do
 
         if num == 1 / 0 then -- math.huge
             -- (sign << 31) + (0xFF << 23)
-            u32 = (sign * (2^31)) + (0xFF * (2^23))
+            u32 = (sign * (2 ^ 31)) + (0xFF * (2 ^ 23))
             write_u32(buf, u32)
             return u32
         end
@@ -271,7 +271,7 @@ do
         mantissa = mantissa * 2
         exponent = exponent - 1
 
-        local ieee_exponent = exponent + 127  -- IEEE 754 bias
+        local ieee_exponent = exponent + 127 -- IEEE 754 bias
         if ieee_exponent <= 0 then
             -- Handle subnormal numbers
             mantissa = math_ldexp(mantissa, ieee_exponent - 1)
@@ -284,15 +284,15 @@ do
 
         -- Scale mantissa to 23 bits and round
         local mantissa_bits = math_floor(
-            ((mantissa - 1) * (2^23)) + 0.5
+            ((mantissa - 1) * (2 ^ 23)) + 0.5
         )
 
         -- Ensure mantissa doesn't exceed 23 bits
-        mantissa_bits = mantissa_bits % (2^23)
+        mantissa_bits = mantissa_bits % (2 ^ 23)
 
         -- Combine all parts
         -- (sign << 31) | (ieee_exponent << 23) | mantissa_bits
-        u32 = (sign * (2^31)) + (ieee_exponent * (2^23)) + mantissa_bits
+        u32 = (sign * (2 ^ 31)) + (ieee_exponent * (2 ^ 23)) + mantissa_bits
 
         write_u32(buf, u32)
         return u32
@@ -324,7 +324,7 @@ do
 
         if num == 1 / 0 then -- Infinity
             -- (sign << 31) | (0x7FF << 20)
-            u32_1 = (sign * (2^31)) + (0x7FF * (2^20))
+            u32_1 = (sign * (2 ^ 31)) + (0x7FF * (2 ^ 20))
             write_u32(buf, u32_1)
             write_u32(buf, u32_2)
             return
@@ -335,21 +335,21 @@ do
         local ieee_exponent = exponent + 1022
         if ieee_exponent > 0 then
             -- Normal numbers
-            local mantissa_scaled = (mantissa * 2 - 1) * (2^52)
-            local mantissa_upper = math_floor(mantissa_scaled / (2^32)) -- (mantissa_scaled >> 32)
-            local mantissa_lower = mantissa_scaled % (2^32) -- (mantissa_scaled & 0xFFFFFFFF)
+            local mantissa_scaled = (mantissa * 2 - 1) * (2 ^ 52)
+            local mantissa_upper = math_floor(mantissa_scaled / (2 ^ 32)) -- (mantissa_scaled >> 32)
+            local mantissa_lower = mantissa_scaled % (2 ^ 32)             -- (mantissa_scaled & 0xFFFFFFFF)
 
             -- (sign << 31) | (ieee_exponent << 20) | (mantissa_upper % 2^20)
-            u32_1 = (sign * (2^31)) + (ieee_exponent * (2^20)) + (mantissa_upper % (2^20))
+            u32_1 = (sign * (2 ^ 31)) + (ieee_exponent * (2 ^ 20)) + (mantissa_upper % (2 ^ 20))
             u32_2 = mantissa_lower
         else
             -- Subnormal numbers
             local mantissa_scaled = mantissa * math_ldexp(1, 52 + ieee_exponent)
-            local mantissa_upper = math_floor(mantissa_scaled / (2^32)) -- (mantissa_scaled >> 32)
-            local mantissa_lower = mantissa_scaled % (2^32) -- (mantissa_scaled & 0xFFFFFFFF)
+            local mantissa_upper = math_floor(mantissa_scaled / (2 ^ 32)) -- (mantissa_scaled >> 32)
+            local mantissa_lower = mantissa_scaled % (2 ^ 32)             -- (mantissa_scaled & 0xFFFFFFFF)
 
             -- (sign << 31) | (mantissa_upper & 0xFFFFF)
-            u32_1 = (sign * (2^31)) + (mantissa_upper % (2^20))
+            u32_1 = (sign * (2 ^ 31)) + (mantissa_upper % (2 ^ 20))
             u32_2 = mantissa_lower
         end
 
@@ -565,10 +565,10 @@ do
 
     -- Context Structure
     local context = {
-        1,      -- index
-        "",     -- bytes
-        0,      -- bytes length
-        1 / 0   -- max size for decode (math.huge)
+        1,    -- index
+        "",   -- bytes
+        0,    -- bytes length
+        1 / 0 -- max size for decode (math.huge)
     }
 
     local function peak_type(ctx)
@@ -609,7 +609,7 @@ do
 
     local function read_byte(ctx, size)
         local idx = ctx[1]
-        if idx + size - 1 > ctx[3] then -- ctx[3] bytes length
+        if idx + size - 1 > ctx[3] then     -- ctx[3] bytes length
             return nil, "bytes underflow"
         elseif idx + size - 1 > ctx[4] then -- ctx[4] max size
             return nil, "bytes overflow"
@@ -621,7 +621,7 @@ do
 
     local function read_str(ctx, size)
         local idx = ctx[1]
-        if idx + size - 1 > ctx[3] then -- ctx[3] bytes length
+        if idx + size - 1 > ctx[3] then     -- ctx[3] bytes length
             return nil, "bytes underflow"
         elseif idx + size - 1 > ctx[4] then -- ctx[4] max size
             return nil, "bytes overflow"
@@ -680,25 +680,25 @@ do
         end
 
         -- ((u32 >> 31) & 1) == 1 and -1 or 1
-        local sign = math_floor(u32 / (2^31)) % 2 == 1 and -1 or 1
+        local sign = math_floor(u32 / (2 ^ 31)) % 2 == 1 and -1 or 1
         -- (u32 >> 23) & 0xFF
-        local exponent_field = math_floor(u32 / (2^23)) % (2^8)
+        local exponent_field = math_floor(u32 / (2 ^ 23)) % (2 ^ 8)
         -- u32 & 0x7FFFFF
-        local mantissa = u32 % (2^23)
+        local mantissa = u32 % (2 ^ 23)
 
         if exponent_field == 0xFF then
             if mantissa == 0 then
-                return sign * (1 / 0)  -- math.huge
+                return sign * (1 / 0) -- math.huge
             end
-            return 0 / 0  -- NaN
+            return 0 / 0              -- NaN
         end
 
         if exponent_field == 0 and mantissa == 0 then
-            return sign * 0  -- Zero
+            return sign * 0 -- Zero
         end
 
         -- mantissa >> 23
-        local mantissa_scaled = mantissa / (2^23)
+        local mantissa_scaled = mantissa / (2 ^ 23)
 
         if exponent_field ~= 0 then
             -- Normal numbers
@@ -722,25 +722,25 @@ do
         if err then return nil, err end
 
         -- ((u32_1 >> 31) & 1) == 1 and -1 or 1
-        local sign = math_floor(u32_1 / (2^31)) % 2 == 1 and -1 or 1
+        local sign = math_floor(u32_1 / (2 ^ 31)) % 2 == 1 and -1 or 1
         -- (u32_1 >> 20) & 0x7FF
-        local exponent_field = math_floor(u32_1 / (2^20)) % (2^11)
+        local exponent_field = math_floor(u32_1 / (2 ^ 20)) % (2 ^ 11)
         -- u32_1 & 0xFFFFF
-        local mantissa_upper = u32_1 % (2^20)
+        local mantissa_upper = u32_1 % (2 ^ 20)
 
         if exponent_field == 0x7FF then
             if mantissa_upper == 0 and u32_2 == 0 then
-                return sign * (1 / 0)  -- math.huge
+                return sign * (1 / 0) -- math.huge
             end
-            return 0 / 0  -- NaN
+            return 0 / 0              -- NaN
         end
 
         if exponent_field == 0 and mantissa_upper == 0 and u32_2 == 0 then
-            return sign * 0  -- Zero
+            return sign * 0 -- Zero
         end
 
         -- mantissa_upper << 32 + u32_2
-        local mantissa_scaled = mantissa_upper * (2^32) + u32_2
+        local mantissa_scaled = mantissa_upper * (2 ^ 32) + u32_2
 
         if exponent_field ~= 0 then
             -- Normal numbers
@@ -756,7 +756,7 @@ do
     Decoder.read_double = read_double
 
     local function read_array(ctx, till)
-        local arr = {nil, nil, nil, nil, nil, nil, nil, nil, nil, nil} -- initialize with size of 10
+        local arr = { nil, nil, nil, nil, nil, nil, nil, nil, nil, nil } -- initialize with size of 10
         local size = 0
         while peak_type(ctx) ~= till do
             local val, err = read_value(ctx)
@@ -772,7 +772,7 @@ do
     Decoder.read_array = read_array
 
     local function read_table(ctx, till)
-        local tbl = {nil, nil, nil, nil, nil, nil, nil, nil, nil, nil} -- initialize with size of 10
+        local tbl = { nil, nil, nil, nil, nil, nil, nil, nil, nil, nil } -- initialize with size of 10
         while peak_type(ctx) ~= till do
             local key, val, err
             key, err = read_value(ctx)
