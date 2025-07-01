@@ -70,15 +70,8 @@ local SortedMap; do
     end
 end
 
-sfs.set_type_function(function(v)
-    if getmetatable(v) == SortedMap.Meta then
-        return "SortedMap"
-    end
-    return _G.type(v)
-end)
-
 local SORTED_MAP_ID
-SORTED_MAP_ID = sfs.add_custom_type("SortedMap", function(buf, v)
+SORTED_MAP_ID = sfs.add_custom_type(SortedMap.Meta, function(buf, v)
     Encoder.write_byte(buf, SORTED_MAP_ID)
 
     if Encoder.write_table(buf, v.map) then -- if it returns true, there was an error

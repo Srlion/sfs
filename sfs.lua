@@ -10,6 +10,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 local next = next
 local pairs = pairs
+local type = type
+local getmetatable = getmetatable
 local table_concat = table.concat
 local math_floor = math.floor
 local math_ldexp = math.ldexp
@@ -22,15 +24,6 @@ local chars = {}; do
     end
 end
 --
-
-local internal_type = _G.type
-local IsColor = IsColor
-local function type(v)
-    if IsColor and IsColor(v) then
-        return "Color"
-    end
-    return internal_type(v)
-end
 
 local function is_array(tbl)
     local tbl_len = #tbl
@@ -155,8 +148,17 @@ do
     end
     Encoder.write_str = write_str
 
+    local function get_encoder_impl(t)
+        local encoder = encoders[getmetatable(t)]
+        if encoder == nil then
+            encoder = encoders[type(t)]
+        end
+        return encoder
+    end
+    Encoder.get_encoder_impl = get_encoder_impl
+
     local function get_encoder(buf, t)
-        local encoder = encoders[type(t)]
+        local encoder = get_encoder_impl(t)
         if encoder == nil then
             write_str(buf, "unsupported type: ")
             write_str(buf, type(t))
@@ -545,13 +547,20 @@ do
         end
     end
 
-    encoders.Color = function(buf, col)
-        write_byte(buf, COLOR)
+    local COLOR_META = FindMetaTable and FindMetaTable("Color")
+    if COLOR_META then
+        encoders[COLOR_META] = function(buf, col)
+            write_byte(buf, COLOR)
 
-        write_u8(buf, math_floor(col.r))
-        write_u8(buf, math_floor(col.g))
-        write_u8(buf, math_floor(col.b))
-        write_u8(buf, math_floor(col.a))
+            write_u8(buf, math_floor(col.r))
+            write_u8(buf, math_floor(col.g))
+            write_u8(buf, math_floor(col.b))
+            write_u8(buf, math_floor(col.a))
+        end
+    end
+
+    -- function encoding will never be supported, so just skip it
+    encoders["function"] = function()
     end
 end
 
@@ -1129,19 +1138,6 @@ do
     --
 end
 
-local function can_encode(val)
-    local t = type(val)
-    if t == "table" then
-        for k, v in pairs(val) do
-            if not can_encode(k) or not can_encode(v) then
-                return false
-            end
-        end
-        return true
-    end
-    return encoders[t] ~= nil
-end
-
 local encode_to_hex, decode_from_hex; do
     local byte = string.byte
     local char = string.char
@@ -1243,8 +1239,6 @@ return {
         decoders[id] = decoder
     end,
 
-    can_encode = can_encode,
-
     chars = chars,
-    VERSION = "4.0.0"
+    VERSION = "5.0.0"
 }
