@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - master
-    paths:
-      - "**"
-      - "!README.MD"
 
 jobs:
   build:
