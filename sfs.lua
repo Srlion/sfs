@@ -71,7 +71,7 @@ local new_type; do
     function new_type(name, n)
         n = n or 1
         if type_count + n > 255 then
-            return error("types count cannot be more than 256")
+            error("types count cannot be more than 256", 2)
         end
 
         local start_type = type_count + 1
@@ -572,8 +572,7 @@ do
     }
 
     local function peak_type(ctx)
-        local typ = string_byte(ctx[2], ctx[1])
-        return typ
+        return string_byte(ctx[2], ctx[1])
     end
     Decoder.peak_type = peak_type
 
@@ -632,11 +631,11 @@ do
     Decoder.read_str = read_str
 
     local function read_u8(ctx)
-        local byt, err = read_byte(ctx, 1)
+        local bty, err = read_byte(ctx, 1)
         if err then
             return nil, err
         end
-        return byt
+        return bty
     end
     Decoder.read_u8 = read_u8
 
@@ -1080,12 +1079,12 @@ do
 
     --
     decoders[STRING_FIXED_START] = function(ctx)
-        local byt, str, err
+        local bty, str, err
 
-        byt, err = read_byte(ctx, 1)
+        bty, err = read_byte(ctx, 1)
         if err then return nil, err end
 
-        local str_len = byt - STRING_FIXED_START
+        local str_len = bty - STRING_FIXED_START
 
         str, err = read_str(ctx, str_len)
         if err then return nil, err end
@@ -1099,12 +1098,12 @@ do
     --
     --
     decoders[POSITIVE_FIXED_START] = function(ctx)
-        local byt, num, err
+        local bty, num, err
 
-        byt, err = read_byte(ctx, 1)
+        bty, err = read_byte(ctx, 1)
         if err then return nil, err end
 
-        num = byt - POSITIVE_FIXED_START
+        num = bty - POSITIVE_FIXED_START
         return num
     end
 
@@ -1115,12 +1114,12 @@ do
 
     --
     decoders[NEGATIVE_FIXED_START] = function(ctx)
-        local byt, num, err
+        local bty, num, err
 
-        byt, err = read_byte(ctx, 1)
+        bty, err = read_byte(ctx, 1)
         if err then return nil, err end
 
-        num = byt - NEGATIVE_FIXED_START
+        num = bty - NEGATIVE_FIXED_START
         return -num
     end
 
@@ -1217,30 +1216,30 @@ return {
         type = t_fn
     end,
 
-    add_custom_type = function(typ, encoder, decoder)
+    add_custom_type = function(ty, encoder, decoder)
         if CUSTOM_START == CUSTOM_MAX then
             return error("cannot add more custom types")
         end
 
-        if encoders[typ] or decoders[typ] then
+        if encoders[ty] or decoders[ty] then
             -- this just prints incase you mistakenly add a type that already exists
-            ErrorNoHaltWithStack("type already exists: `" .. typ .. "`")
+            ErrorNoHaltWithStack("type already exists: `" .. ty .. "`")
         end
 
-        encoders[typ] = encoder
+        encoders[ty] = encoder
         decoders[CUSTOM_START] = decoder
 
         CUSTOM_START = CUSTOM_START + 1
         return CUSTOM_START - 1
     end,
 
-    set_custom_type_with_id = function(id, typ, encoder, decoder)
-        if encoders[typ] or decoders[typ] then
+    set_custom_type_with_id = function(id, ty, encoder, decoder)
+        if encoders[ty] or decoders[ty] then
             -- this just prints incase you mistakenly add a type that already exists
-            ErrorNoHaltWithStack("type already exists: `" .. typ .. "`")
+            ErrorNoHaltWithStack("type already exists: `" .. ty .. "`")
         end
 
-        encoders[typ] = encoder
+        encoders[ty] = encoder
         decoders[id] = decoder
     end,
 
