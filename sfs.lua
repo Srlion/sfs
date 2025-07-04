@@ -499,7 +499,13 @@ do
     local Entity_EntIndex = FindMetaTable and FindMetaTable("Entity").EntIndex
     encoders.Entity = function(buf, ent)
         write_byte(buf, ENTITY)
-        write_u16(buf, Entity_EntIndex(ent))
+        if ent == NULL then
+            -- To tell Entity(0) (world) and NULL apart (since both have ent index 0), we use 0xFFFF (max u16 number) to represent NULL.
+            -- Garry's Mod max entity count is 8194 and could be doubled, so we should be safe
+            write_u16(buf, 0xFFFF) -- max u16 value
+        else
+            write_u16(buf, Entity_EntIndex(ent))
+        end
     end
 
     -- All of these are reported as their own type but are otherwise identical in handling to entities
@@ -871,6 +877,9 @@ do
         local ent_idx, err = read_u16(ctx)
         if err then
             return nil, err
+        end
+        if ent_idx == 0xFFFF then -- NULL entity
+            return NULL
         end
         return Entity(ent_idx)
     end

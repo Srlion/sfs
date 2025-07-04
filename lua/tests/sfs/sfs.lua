@@ -514,6 +514,24 @@ return {
             end
         },
         {
+            name = name("null entity"),
+            func = function()
+                local ent = NULL
+                local encoded = encode(ent)
+                local decoded = decode(encoded)
+                expect(decoded).to.equal(ent)
+            end
+        },
+        {
+            name = name("world entity"),
+            func = function()
+                local ent = Entity(0)
+                local encoded = encode(ent)
+                local decoded = decode(encoded)
+                expect(decoded).to.equal(ent)
+            end
+        },
+        {
             name = name("player"),
             func = function()
                 if player.GetCount() == 0 then
@@ -742,7 +760,7 @@ return {
                 end
                 expect(#sfs.encode(string.rep("a", sfs.TYPES.string_fixed.max))).to.equal(sfs.TYPES.string_fixed.max + 1)
                 expect(#sfs.encode(string.rep("a", sfs.TYPES.string_fixed.max + 1))).to.equal(sfs.TYPES.string_fixed.max +
-                3)
+                    3)
             end
         },
         {
