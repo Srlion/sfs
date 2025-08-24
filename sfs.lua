@@ -135,6 +135,12 @@ local ENDING                                   = new_type("ending") -- type used
 local CUSTOM_START, CUSTOM_MAX                 = new_type("custom", 14)
 --
 
+-- To tell Entity(0) (world) and NULL apart (since both have ent index 0), we use this (min i16 number) to represent NULL
+-- -1 = non networked entities
+-- 0 - 8192 = networked entities
+-- Thanks to Redox for reporting the -1 case and to RaphaelIT7 for explaining it
+local NULL_ENT_INDEX                           = 0x8000
+
 local encoders                                 = {}
 local Encoder                                  = {
     encoders = encoders,
@@ -223,6 +229,26 @@ do
         write_byte(buf, num % 0x100)
     end
     Encoder.write_u53 = write_u53
+
+    local function write_i8(buf, num)
+        write_byte(buf, num % 0x100)
+    end
+    Encoder.write_i8 = write_i8
+
+    local function write_i16(buf, num)
+        write_u16(buf, num % 0x10000)
+    end
+    Encoder.write_i16 = write_i16
+
+    local function write_i32(buf, num)
+        write_u32(buf, num % 0x100000000)
+    end
+    Encoder.write_i32 = write_i32
+
+    local function write_i53(buf, num)
+        write_u53(buf, num % 0x20000000000000)
+    end
+    Encoder.write_i53 = write_i53
 
     local function write_varint(buf, tag, num)
         if num <= 255 then -- 0 - 255 (8 bits)
@@ -500,11 +526,9 @@ do
     encoders.Entity = function(buf, ent)
         write_byte(buf, ENTITY)
         if ent == NULL then
-            -- To tell Entity(0) (world) and NULL apart (since both have ent index 0), we use 0xFFFF (max u16 number) to represent NULL.
-            -- Garry's Mod max entity count is 8194 and could be doubled, so we should be safe
-            write_u16(buf, 0xFFFF) -- max u16 value
+            write_i16(buf, NULL_ENT_INDEX)
         else
-            write_u16(buf, Entity_EntIndex(ent))
+            write_i16(buf, Entity_EntIndex(ent))
         end
     end
 
@@ -686,6 +710,34 @@ do
             + b7
     end
     Decoder.read_u53 = read_u53
+
+    local function read_i8(ctx)
+        local u, err = read_u8(ctx); if err then return nil, err end
+        if u >= 0x80 then u = u - 0x100 end
+        return u
+    end
+    Decoder.read_i8 = read_i8
+
+    local function read_i16(ctx)
+        local u, err = read_u16(ctx); if err then return nil, err end
+        if u >= 0x8000 then u = u - 0x10000 end
+        return u
+    end
+    Decoder.read_i16 = read_i16
+
+    local function read_i32(ctx)
+        local u, err = read_u32(ctx); if err then return nil, err end
+        if u >= 0x80000000 then u = u - 0x100000000 end
+        return u
+    end
+    Decoder.read_i32 = read_i32
+
+    local function read_i53(ctx)
+        local u, err = read_u53(ctx); if err then return nil, err end
+        if u >= 0x10000000000000 then u = u - 0x20000000000000 end
+        return u
+    end
+    Decoder.read_i53 = read_i53
 
     local function read_float(ctx)
         local u32, err = read_u32(ctx)
@@ -874,11 +926,11 @@ do
     local Entity = Entity
     decoders[ENTITY] = function(ctx)
         ctx[1] = ctx[1] + 1
-        local ent_idx, err = read_u16(ctx)
+        local ent_idx, err = read_i16(ctx)
         if err then
             return nil, err
         end
-        if ent_idx == 0xFFFF then -- NULL entity
+        if ent_idx == NULL_ENT_INDEX then
             return NULL
         end
         return Entity(ent_idx)

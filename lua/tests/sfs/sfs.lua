@@ -11,39 +11,39 @@ local function name(v)
 end
 
 local function are_equal(t1, t2)
-    if type(t1) ~= type(t2) then
-        return false
-    end
-
+    if type(t1) ~= type(t2) then return false end
     if type(t1) ~= "table" then
-        if t1 ~= t1 and t2 ~= t2 then -- NaN
-            return true
-        end
-
+        if t1 ~= t1 and t2 ~= t2 then return true end -- both NaN
         return t1 == t2
     end
-
     for k in pairs(t1) do
-        if not t2[k] then
-            return false
-        end
-
-        if not are_equal(t1[k], t2[k]) then
-            return false
-        end
+        if t2[k] == nil then return false end
+        if not are_equal(t1[k], t2[k]) then return false end
     end
-
-    if table.Count(t1) ~= table.Count(t2) then
-        return false
-    end
-
+    if table.Count(t1) ~= table.Count(t2) then return false end
     return true
 end
 
-local function generate_test_numbers(total_range)
+local function expect_same_number(expect, decoded, original)
+    if original ~= original then
+        -- original is NaN ⇒ decoded must also be NaN
+        expect(decoded ~= decoded).to.beTrue()
+        return
+    end
+    if original == 0 then
+        -- preserve zero sign
+        local inv_o = 1 / original
+        local inv_d = 1 / decoded
+        expect(inv_d).to.equal(inv_o) -- +inf vs -inf must match
+        return
+    end
+    expect(decoded).to.equal(original)
+end
+
+local function generate_test_numbers(current_value, total_range)
     local to_test = {}
-    local current_value = 0
     local step_factor = 1.5
+    table.insert(to_test, current_value)
     while current_value < total_range do
         local step = math.min(math.floor(step_factor * math.random(10, 100)), total_range - current_value)
         current_value = current_value + step
@@ -288,11 +288,7 @@ return {
                     local encoded = sfs.end_buffer(buffer)
 
                     local decoded = decode(encoded)
-                    if original ~= original then
-                        expect(decoded).notTo.equal(original)
-                    else
-                        expect(decoded).to.equal(original)
-                    end
+                    expect_same_number(expect, decoded, original)
                 end
             end
         },
@@ -496,11 +492,7 @@ return {
                     local encoded = sfs.end_buffer(buffer)
 
                     local decoded = decode(encoded)
-                    if original ~= original then
-                        expect(decoded).notTo.equal(original)
-                    else
-                        expect(decoded).to.equal(original)
-                    end
+                    expect_same_number(expect, decoded, original)
                 end
             end
         },
@@ -631,7 +623,7 @@ return {
         {
             name = name("positive_u32"),
             func = function()
-                local to_test = generate_test_numbers(4294967295)
+                local to_test = generate_test_numbers(0, 4294967295)
                 local TEST_POSITIVE_U32 = sfs.add_custom_type("bla bla", function()
                 end, function(ctx)
                     ctx[1] = ctx[1] + 1
@@ -653,7 +645,7 @@ return {
         {
             name = name("positive_u53"),
             func = function()
-                local to_test = generate_test_numbers(9007199254740992)
+                local to_test = generate_test_numbers(0, 9007199254740992)
                 local TEST_POSITIVE_U53 = sfs.add_custom_type("bla bla 2", function()
                 end, function(ctx)
                     ctx[1] = ctx[1] + 1
@@ -718,7 +710,7 @@ return {
         {
             name = name("negative_u32"),
             func = function()
-                local to_test = generate_test_numbers(4294967295)
+                local to_test = generate_test_numbers(0, 4294967295)
                 local buffer = sfs.new_buffer()
                 for k, v in ipairs(to_test) do
                     sfs.reset_buffer(buffer)
@@ -733,7 +725,7 @@ return {
         {
             name = name("negative_u53"),
             func = function()
-                local to_test = generate_test_numbers(4503599627370495)
+                local to_test = generate_test_numbers(0, 4503599627370495)
                 local buffer = sfs.new_buffer()
                 for k, v in ipairs(to_test) do
                     sfs.reset_buffer(buffer)
@@ -742,6 +734,64 @@ return {
                     local encoded = sfs.end_buffer(buffer)
                     local decoded = decode(encoded)
                     expect(decoded).to.equal(-v)
+                end
+            end
+        },
+        {
+            name = name("i8"),
+            func = function()
+                local buffer = sfs.new_buffer()
+                for i = -128, 127 do
+                    sfs.reset_buffer(buffer)
+                    Encoder.write_i8(buffer, i)
+                    local encoded = sfs.end_buffer(buffer)
+                    local decoder = Decoder.setup_context(encoded)
+                    local decoded = Decoder.read_i8(decoder)
+                    expect(decoded).to.equal(i)
+                end
+            end
+        },
+        {
+            name = name("i16"),
+            func = function()
+                local buffer = sfs.new_buffer()
+                for i = -32768, 32767 do
+                    sfs.reset_buffer(buffer)
+                    Encoder.write_i16(buffer, i)
+                    local encoded = sfs.end_buffer(buffer)
+                    local decoder = Decoder.setup_context(encoded)
+                    local decoded = Decoder.read_i16(decoder)
+                    expect(decoded).to.equal(i)
+                end
+            end
+        },
+        {
+            name = name("i32"),
+            func = function()
+                local to_test = generate_test_numbers(-2147483648, 2147483647)
+                local buffer = sfs.new_buffer()
+                for k, v in ipairs(to_test) do
+                    sfs.reset_buffer(buffer)
+                    Encoder.write_i32(buffer, v)
+                    local encoded = sfs.end_buffer(buffer)
+                    local decoder = Decoder.setup_context(encoded)
+                    local decoded = Decoder.read_i32(decoder)
+                    expect(decoded).to.equal(v)
+                end
+            end
+        },
+        {
+            name = name("i53"),
+            func = function()
+                local to_test = generate_test_numbers(-4503599627370496, 4503599627370495)
+                local buffer = sfs.new_buffer()
+                for k, v in ipairs(to_test) do
+                    sfs.reset_buffer(buffer)
+                    Encoder.write_i53(buffer, v)
+                    local encoded = sfs.end_buffer(buffer)
+                    local decoder = Decoder.setup_context(encoded)
+                    local decoded = Decoder.read_i53(decoder)
+                    expect(decoded).to.equal(v)
                 end
             end
         },
