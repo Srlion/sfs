@@ -6,11 +6,30 @@ on:
       - master
 
 jobs:
+  prepare-overrides:
+    runs-on: ubuntu-latest
+    outputs:
+      overrides-path: ${{ steps.out.outputs.path }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stage root sfs.lua into overrides (addon layout)
+        run: |
+          mkdir -p gluatest_overrides/garrysmod/addons/project/lua
+          cp sfs.lua gluatest_overrides/garrysmod/addons/project/lua/sfs.lua
+
+      - id: out
+        run: echo "path=gluatest_overrides/garrysmod/" >> "$GITHUB_OUTPUT"
+
   run-tests:
+    needs: prepare-overrides
     uses: CFC-Servers/GLuaTest/.github/workflows/run_tests.yml@main
+    with:
+      custom-overrides: ${{ needs.prepare-overrides.outputs.overrides-path }}
 
   build:
     runs-on: ubuntu-22.04
+    needs: run-tests
     permissions:
       contents: write
     steps:
