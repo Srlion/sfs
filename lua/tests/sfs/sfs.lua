@@ -1,4 +1,4 @@
-local sfs = include("sfs/sfs.lua")
+local sfs = include("sfs.lua")
 
 local encode = sfs.encode
 local decode = sfs.decode
