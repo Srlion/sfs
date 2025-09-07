@@ -1,4 +1,4 @@
-name: Bump version
+name: Release
 
 on:
   push:
@@ -6,26 +6,8 @@ on:
       - master
 
 jobs:
-  prepare-overrides:
-    runs-on: ubuntu-latest
-    outputs:
-      overrides-path: ${{ steps.out.outputs.path }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Stage root sfs.lua into overrides (addon layout)
-        run: |
-          mkdir -p gluatest_overrides/garrysmod/addons/project/lua
-          cp sfs.lua gluatest_overrides/garrysmod/addons/project/lua/sfs.lua
-
-      - id: out
-        run: echo "path=gluatest_overrides/garrysmod/" >> "$GITHUB_OUTPUT"
-
   run-tests:
-    needs: prepare-overrides
     uses: CFC-Servers/GLuaTest/.github/workflows/run_tests.yml@main
-    with:
-      custom-overrides: ${{ needs.prepare-overrides.outputs.overrides-path }}
 
   build:
     runs-on: ubuntu-22.04
@@ -33,13 +15,13 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: "0"
 
       - name: Bump version and push tag
         id: tag
-        uses: anothrNick/github-tag-action@1.70.0
+        uses: anothrNick/github-tag-action@1.75.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WITH_V: false
@@ -49,7 +31,7 @@ jobs:
       # Update the version file locally
       - name: Update version file
         if: steps.tag.outputs.new_tag != ''
-        run: sed -i 's/VERSION = "[^"]*"/VERSION = "${{ steps.tag.outputs.new_tag }}"/' sfs.lua
+        run: sed -i 's/VERSION = "[^"]*"/VERSION = "${{ steps.tag.outputs.new_tag }}"/' lua/sfs.lua
 
       # Get the commit message
       - name: Extract Commit Message
@@ -66,4 +48,4 @@ jobs:
           gh release create "${{ steps.tag.outputs.new_tag }}" \
           --title "Release ${{ steps.tag.outputs.new_tag }}" \
           --notes "$COMMIT_MESSAGE" \
-          sfs.lua
+          lua/sfs.lua
