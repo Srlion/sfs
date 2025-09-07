@@ -8,6 +8,8 @@ on:
 jobs:
   run-tests:
     uses: CFC-Servers/GLuaTest/.github/workflows/run_tests.yml@main
+    with:
+      branch: x86-64
 
   build:
     runs-on: ubuntu-22.04
