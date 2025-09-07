@@ -139,7 +139,7 @@ local CUSTOM_START, CUSTOM_MAX                 = new_type("custom", 14)
 -- -1 = non networked entities
 -- 0 - 8192 = networked entities
 -- Thanks to Redox for reporting the -1 case and to RaphaelIT7 for explaining it
-local NULL_ENT_INDEX                           = 0x8000
+local NULL_ENT_INDEX                           = -0x8000
 
 local encoders                                 = {}
 local Encoder                                  = {
