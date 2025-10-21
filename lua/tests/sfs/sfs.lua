@@ -90,8 +90,8 @@ local function generate_test_array(total_range)
     return result
 end
 
-local function generate_test_table(total_range)
-    local result = {}
+local function generate_test_table(total_range, result)
+    result = result or {}
     local length = 1
     table.insert(result, { key1 = "value1" })
     while length < total_range do
@@ -970,6 +970,33 @@ return {
                     local decoded = decode(encoded)
                     expect(are_equal(v, decoded)).to.beTrue()
                 end
+            end
+        },
+        {
+            name = name("mixed_table_u8"),
+            func = function()
+                local to_test = generate_test_table(255, generate_test_array(255))
+                local encoded = sfs.encode(to_test)
+                local decoded = sfs.decode(encoded)
+                expect(are_equal(to_test, decoded)).to.beTrue()
+            end
+        },
+        {
+            name = name("mixed_table_u16"),
+            func = function()
+                local to_test = generate_test_table(65535, generate_test_array(65535))
+                local encoded = sfs.encode(to_test)
+                local decoded = sfs.decode(encoded)
+                expect(are_equal(to_test, decoded)).to.beTrue()
+            end
+        },
+        {
+            name = name("mixed_table_u32"),
+            func = function()
+                local to_test = generate_test_table(5999999, generate_test_array(5999999))
+                local encoded = sfs.encode(to_test)
+                local decoded = sfs.decode(encoded)
+                expect(are_equal(to_test, decoded)).to.beTrue()
             end
         },
     }

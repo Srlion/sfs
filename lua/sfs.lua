@@ -8,7 +8,6 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ]]
 
-local next = next
 local pairs = pairs
 local type = type
 local getmetatable = getmetatable
@@ -24,39 +23,6 @@ local chars = {}; do
     end
 end
 --
-
-local function is_array(tbl)
-    local tbl_len = #tbl
-
-    -- eh, if it's empty then it doesn't matter if it's an array or not, still gonna take 1 byte if it's actually empty
-    if tbl_len == 0 then
-        return false
-    end
-
-    -- lua arrays are 1 indexed, but luajit arrays can be 0 indexed
-    if tbl[0] ~= nil then
-        return false
-    end
-
-    -- Check if there are no elements after the last index
-    if next(tbl, tbl_len) ~= nil then
-        return false
-    end
-
-    if tbl_len == 1 then
-        -- For tables with length 1, check if the first key is 1
-        if next(tbl) ~= 1 then
-            return false
-        end
-    elseif tbl_len > 1 then
-        -- For tables with length > 1, check if the key before the last is tbl_len
-        if next(tbl, tbl_len - 1) ~= tbl_len then
-            return false
-        end
-    end
-
-    return true
-end
 
 local TYPES = {}
 local new_type; do
@@ -107,7 +73,7 @@ local _                                        = new_type("reserved_4")
 --
 
 --
-local POSITIVE_FIXED_START, POSITIVE_FIXED_MAX = new_type("positive_fixed", 102)
+local POSITIVE_FIXED_START, POSITIVE_FIXED_MAX = new_type("positive_fixed", 101)
 local POSITIVE_U8                              = new_type("positive_u8")
 local POSITIVE_U16                             = new_type("positive_u16")
 local POSITIVE_U32                             = new_type("positive_u32")
@@ -127,6 +93,8 @@ local STRING_U32                               = new_type("string_u32")
 local ARRAY                                    = new_type("array")
 
 local TABLE                                    = new_type("table")
+
+local ARRAY_AND_TABLE                          = new_type("array_and_table")
 
 local ENDING                                   = new_type("ending") -- type used to end arrays and tables, can be used for custom types as well
 --
@@ -488,11 +456,48 @@ do
     end
 
     encoders.table = function(buf, tbl)
-        if is_array(tbl) then
-            return encoders.array(buf, tbl)
+        -- save position where we'll write the tag
+        local tag_pos = buf[0] + 1
+        buf[0] = tag_pos
+        buf[tag_pos] = chars[ARRAY] -- assume array initially
+
+        local n = 0
+        local is_pure_array = true
+
+        for k, v in pairs(tbl) do
+            if is_pure_array then
+                -- check if this key breaks array assumption
+                if type(k) ~= "number" or k ~= n + 1 or k % 1 ~= 0 then
+                    -- if it's pure hash, then write as table directly
+                    if n == 0 then
+                        buf[tag_pos] = chars[TABLE]
+                    else
+                        buf[tag_pos] = chars[ARRAY_AND_TABLE]
+                        -- write ENDING to mark end of array part
+                        write_byte(buf, ENDING)
+                    end
+
+                    is_pure_array = false
+
+                    -- write current key-value (the one that broke the array)
+                    if write_value(buf, k) or write_value(buf, v) then
+                        return true
+                    end
+                else
+                    -- still an array
+                    n = n + 1
+                    if write_value(buf, v) then
+                        return true
+                    end
+                end
+            else
+                -- already in hash mode, write key-value
+                if write_value(buf, k) or write_value(buf, v) then
+                    return true
+                end
+            end
         end
-        write_byte(buf, TABLE)
-        write_table(buf, tbl)
+
         write_byte(buf, ENDING)
     end
 
@@ -1146,6 +1151,28 @@ do
         if err then return nil, err end
         return tbl
     end
+
+    decoders[ARRAY_AND_TABLE] = function(ctx)
+        ctx[1] = ctx[1] + 1
+
+        -- array part first
+        local arr, err = read_array(ctx, ENDING)
+        if err then return nil, err end
+
+        -- hash part
+        while peak_type(ctx) ~= ENDING do
+            local key, val
+            key, err = read_value(ctx)
+            if err then return nil, err end
+            val, err = read_value(ctx)
+            if err then return nil, err end
+            arr[key] = val
+        end
+
+        ctx[1] = ctx[1] + 1 -- skip final ENDING
+        return arr
+    end
+
 
     --
     decoders[STRING_FIXED_START] = function(ctx)
