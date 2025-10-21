@@ -859,6 +859,7 @@ return {
                     local decoded = decode(encoded)
                     expect(decoded).to.equal(v)
                 end
+                collectgarbage()
             end
         },
         {
@@ -877,6 +878,7 @@ return {
                     local decoded = decode(encoded)
                     expect(are_equal(v, decoded)).to.beTrue()
                 end
+                collectgarbage()
             end
         },
         {
@@ -895,6 +897,7 @@ return {
                     local decoded = decode(encoded)
                     expect(are_equal(v, decoded)).to.beTrue()
                 end
+                collectgarbage()
             end
         },
         {
@@ -913,6 +916,7 @@ return {
                     local decoded = decode(encoded)
                     expect(are_equal(v, decoded)).to.beTrue()
                 end
+                collectgarbage()
             end
         },
         {
@@ -932,6 +936,7 @@ return {
                     local decoded = decode(encoded)
                     expect(are_equal(v, decoded)).to.beTrue()
                 end
+                collectgarbage()
             end
         },
         {
@@ -951,6 +956,7 @@ return {
                     local decoded = decode(encoded)
                     expect(are_equal(v, decoded)).to.beTrue()
                 end
+                collectgarbage()
             end
         },
         {
@@ -970,6 +976,7 @@ return {
                     local decoded = decode(encoded)
                     expect(are_equal(v, decoded)).to.beTrue()
                 end
+                collectgarbage()
             end
         },
         {
@@ -979,6 +986,7 @@ return {
                 local encoded = sfs.encode(to_test)
                 local decoded = sfs.decode(encoded)
                 expect(are_equal(to_test, decoded)).to.beTrue()
+                collectgarbage()
             end
         },
         {
@@ -988,6 +996,7 @@ return {
                 local encoded = sfs.encode(to_test)
                 local decoded = sfs.decode(encoded)
                 expect(are_equal(to_test, decoded)).to.beTrue()
+                collectgarbage()
             end
         },
         {
@@ -997,6 +1006,7 @@ return {
                 local encoded = sfs.encode(to_test)
                 local decoded = sfs.decode(encoded)
                 expect(are_equal(to_test, decoded)).to.beTrue()
+                collectgarbage()
             end
         },
         {
@@ -1006,6 +1016,7 @@ return {
                 local encoded = sfs.encode(to_test)
                 local decoded = sfs.decode(encoded)
                 expect(are_equal(to_test, decoded)).to.beTrue()
+                collectgarbage()
             end
         },
         {
@@ -1015,6 +1026,7 @@ return {
                 local encoded = sfs.encode(to_test)
                 local decoded = sfs.decode(encoded)
                 expect(are_equal(to_test, decoded)).to.beTrue()
+                collectgarbage()
             end
         },
         {
@@ -1024,6 +1036,7 @@ return {
                 local encoded = sfs.encode(to_test)
                 local decoded = sfs.decode(encoded)
                 expect(are_equal(to_test, decoded)).to.beTrue()
+                collectgarbage()
             end
         },
         {
@@ -1033,6 +1046,7 @@ return {
                 local encoded = sfs.encode(to_test)
                 local decoded = sfs.decode(encoded)
                 expect(are_equal(to_test, decoded)).to.beTrue()
+                collectgarbage()
             end
         },
         {
@@ -1042,6 +1056,7 @@ return {
                 local encoded = sfs.encode(to_test)
                 local decoded = sfs.decode(encoded)
                 expect(are_equal(to_test, decoded)).to.beTrue()
+                collectgarbage()
             end
         },
         {
@@ -1051,6 +1066,7 @@ return {
                 local encoded = sfs.encode(to_test)
                 local decoded = sfs.decode(encoded)
                 expect(are_equal(to_test, decoded)).to.beTrue()
+                collectgarbage()
             end
         },
     }
