@@ -999,5 +999,59 @@ return {
                 expect(are_equal(to_test, decoded)).to.beTrue()
             end
         },
+        {
+            name = name("sfs.encode_table_array_u8"),
+            func = function()
+                local to_test = generate_test_array(255)
+                local encoded = sfs.encode(to_test)
+                local decoded = sfs.decode(encoded)
+                expect(are_equal(to_test, decoded)).to.beTrue()
+            end
+        },
+        {
+            name = name("sfs.encode_table_array_u16"),
+            func = function()
+                local to_test = generate_test_array(65535)
+                local encoded = sfs.encode(to_test)
+                local decoded = sfs.decode(encoded)
+                expect(are_equal(to_test, decoded)).to.beTrue()
+            end
+        },
+        {
+            name = name("sfs.encode_table_array_u32"),
+            func = function()
+                local to_test = generate_test_array(5999999)
+                local encoded = sfs.encode(to_test)
+                local decoded = sfs.decode(encoded)
+                expect(are_equal(to_test, decoded)).to.beTrue()
+            end
+        },
+        {
+            name = name("sfs.encode_table_hash_u8"),
+            func = function()
+                local to_test = generate_test_table(255)
+                local encoded = sfs.encode(to_test)
+                local decoded = sfs.decode(encoded)
+                expect(are_equal(to_test, decoded)).to.beTrue()
+            end
+        },
+        {
+            name = name("sfs.encode_table_hash_u16"),
+            func = function()
+                local to_test = generate_test_table(65535)
+                local encoded = sfs.encode(to_test)
+                local decoded = sfs.decode(encoded)
+                expect(are_equal(to_test, decoded)).to.beTrue()
+            end
+        },
+        {
+            name = name("sfs.encode_table_hash_u32"),
+            func = function()
+                local to_test = generate_test_table(5999999)
+                local encoded = sfs.encode(to_test)
+                local decoded = sfs.decode(encoded)
+                expect(are_equal(to_test, decoded)).to.beTrue()
+            end
+        },
     }
 }
