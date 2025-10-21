@@ -1064,7 +1064,9 @@ return {
             func = function()
                 local to_test = generate_test_table(5999999)
                 local encoded = sfs.encode(to_test)
-                local decoded = sfs.decode(encoded)
+                local decoded = sfs.decode(sfs.encode(to_test))
+                encoded = nil
+                collectgarbage()
                 expect(are_equal(to_test, decoded)).to.beTrue()
                 collectgarbage()
             end
