@@ -109,8 +109,17 @@ local CUSTOM_START, CUSTOM_MAX                 = new_type("custom", 14)
 -- Thanks to Redox for reporting the -1 case and to RaphaelIT7 for explaining it
 local NULL_ENT_INDEX                           = -0x8000
 
-local encoders                                 = {}
-local Encoder                                  = {
+local STRING_TYPES                             = {
+    [STRING_U8] = true,
+    [STRING_U16] = true,
+    [STRING_U32] = true,
+}
+for i = 1, STRING_FIXED_MAX do
+    STRING_TYPES[STRING_FIXED_START + i] = true
+end
+
+local encoders = {}
+local Encoder  = {
     encoders = encoders,
     ENDING = ENDING
 }
@@ -1224,6 +1233,14 @@ do
         decoders[NEGATIVE_FIXED_START + i] = decoders[NEGATIVE_FIXED_START]
     end
     --
+
+    decoders.string = function(ctx)
+        local bty = peak_type(ctx)
+        if not STRING_TYPES[bty] then
+            return nil, "expected string type"
+        end
+        return read_value(ctx)
+    end
 end
 
 local encode_to_hex, decode_from_hex; do
@@ -1274,6 +1291,7 @@ end
 
 return {
     TYPES = TYPES,
+    STRING_TYPES = STRING_TYPES,
 
     Encoder = Encoder, -- to allow usage of internal functions
     Decoder = Decoder, -- to allow usage of internal functions
