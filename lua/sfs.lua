@@ -114,7 +114,7 @@ local STRING_TYPES                             = {
     [STRING_U16] = true,
     [STRING_U32] = true,
 }
-for i = 1, STRING_FIXED_MAX do
+for i = 0, STRING_FIXED_MAX do
     STRING_TYPES[STRING_FIXED_START + i] = true
 end
 
