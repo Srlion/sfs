@@ -1,6 +1,7 @@
 local math_floor = math.floor
 local math_ldexp = math.ldexp
 local math_frexp = math.frexp
+local math_min = math.min
 local setmetatable = setmetatable
 local table_concat = table.concat
 
@@ -297,6 +298,14 @@ local Reader = {}; do
         return setmetatable({ __data = data, __pos = 1, __size = #data, __max_size = max_size or (1 / 0) }, Reader)
     end
 
+    function Reader:reset(data, max_size)
+        self.__data = data
+        self.__pos = 1
+        self.__size = #data
+        self.__max_size = max_size or (1 / 0)
+        return self
+    end
+
     local function can_read(r, size)
         local pos = r.__pos
         local new_pos = pos + size
@@ -308,6 +317,13 @@ local Reader = {}; do
     end
 
     function Reader:data(size)
+        if not size then
+            local pos = self.__pos
+            local end_pos = math_min(self.__size, self.__max_size)
+            if pos > end_pos then return "" end
+            self.__pos = end_pos + 1
+            return string_sub(self.__data, pos, end_pos)
+        end
         local pos, new_pos = can_read(self, size)
         if not pos then return "" end
         return string_sub(self.__data, pos, new_pos)
