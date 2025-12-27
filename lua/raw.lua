@@ -211,6 +211,8 @@ local Writer = {}; do
         return write_u32(self, u32_2)
     end
 
+    Writer.number = Writer.double -- alias, because uses doubles for numbers
+
     function Writer:bool(b)
         return write_byte(self, b and 1 or 0)
     end
@@ -478,6 +480,7 @@ local Reader = {}; do
         end
     end
     Reader.double = read_double
+    Reader.number = read_double -- alias, because uses doubles for numbers
 
     function Reader:bool()
         local b = read_u8(self)
