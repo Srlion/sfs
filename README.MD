@@ -167,9 +167,6 @@ Around 40% faster than cbor and 94% faster than pon. Encode output will be almos
 | pon     | 88                 |
 
 It may not make a difference for small data, but it will make a difference for big ones.
-
-## Tested On [Physgun](https://billing.physgun.com/aff.php?aff=131) Dev Server
-
 **Gamemode:** Sandbox
 
 - Lua Refresh -> **OFF**
