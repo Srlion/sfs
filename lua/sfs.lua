@@ -661,13 +661,14 @@ do
 
     local function read_byte(ctx, size)
         local idx = ctx[1]
-        if idx + size - 1 > ctx[3] then     -- ctx[3] bytes length
+        local end_idx = idx + size - 1
+        if end_idx > ctx[3] then
             return nil, "bytes underflow"
-        elseif idx + size - 1 > ctx[4] then -- ctx[4] max size
+        elseif end_idx > ctx[4] then
             return nil, "bytes overflow"
         end
-        ctx[1] = idx + size
-        return string_byte(ctx[2], idx, idx + size - 1)
+        ctx[1] = end_idx + 1
+        return string_byte(ctx[2], idx, end_idx)
     end
     Decoder.read_byte = read_byte
 
